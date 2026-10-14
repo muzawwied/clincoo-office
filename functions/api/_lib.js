@@ -97,21 +97,28 @@ export async function tgSend(token, chatId, text) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Dialog 3 giliran antar karakter; tiap baris ditulis ke papan + dikirim ke Telegram user.
+export async function aiSayRetry(env, charId, prompt) {
+  for (let i = 0; i < 3; i++) {
+    const t = await aiSay(env, charId, prompt);
+    if (t) return t;
+    await sleep(3000 + i * 2000);
+  }
+  return null;
+}
+
 export async function runDialogue(env, fromId, toId, topic, notify) {
   const A = persona(fromId), B = persona(toId);
   if (!A || !B) throw new Error('karakter tidak dikenal');
-  const turns = [
-    { who: fromId, to: toId, prompt: `Ajak ${B.name} (${B.role}) bicara di kantor tentang: "${topic}". Buka obrolan santai dengan gaya bicaramu sendiri.` },
-    { who: toId,  to: fromId, prompt: `Baru saja ${A.name} (${A.role}) ngomong ke kamu di kantor: pesan tadi. Balas dengan gaya bicaramu sendiri, tanggapi isinya secara natural.` },
-    { who: fromId, to: toId, prompt: `${B.name} baru saja membalas obrolanmu. Tutup atau tanggapi sekali lagi dengan singkat dan natural, lalu pamit singkat karena harus lanjut kerja.` },
-  ];
   let last = '';
-  for (let i = 0; i < turns.length; i++) {
-    const t = turns[i];
+  const turnDefs = [
+    { who: fromId, to: toId, build: () => `Saat ini di kantor, kamu mau mengajak ${B.name} (${B.role}) bicara tentang: "${topic}". Tulis satu kalimat pembuka obrolan santai dengan gaya bicaramu sendiri.` },
+    { who: toId,  to: fromId, build: () => `Barusan ${A.name} (${A.role}) datang dan bilang ke kamu: "${last}". Balas dengan gaya bicaramu sendiri, tanggapi isinya secara natural.` },
+    { who: fromId, to: toId, build: () => `Kamu baru dengar balasan ${B.name}: "${last}". Tanggapi sekali lagi singkat dan natural, lalu pamit singkat karena harus lanjut kerja.` },
+  ];
+  for (let i = 0; i < turnDefs.length; i++) {
+    const t = turnDefs[i];
     await setStatus(env, t.who, 'mengetik');
-    const p = t.prompt.replace('pesan tadi', last ? ('"' + last + '"') : 'topik tadi').replace('mem balas obrolanmu', 'mem balas obrolanmu: "' + last + '"');
-    let line = await aiSay(env, t.who, p);
-    if (!line) line = `(${persona(t.who).name} mikir sebentar...)`;
+    let line = await aiSayRetry(env, t.who, t.build());
     last = line;
     await logMsg(env, t.who, t.to, line);
     await setStatus(env, t.who, 'bicara');
