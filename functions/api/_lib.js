@@ -33,19 +33,20 @@ export async function logMsg(env, from, to, text) {
 export async function getBoard(env, since) {
   const msgs = await env.DB.prepare('SELECT id, ts, from_c, to_c, text FROM office_msg WHERE id > ? ORDER BY id ASC LIMIT 80').bind(Number(since) || 0).all();
   const st = await env.DB.prepare('SELECT char, status, ts FROM office_status').all();
+  const now = Date.now();
   const out = {};
-  for (const r of (st.results || [])) out[r.char] = r.status;
+  for (const r of (st.results || [])) out[r.char] = (now - (r.ts || 0) < 120000) ? r.status : 'idle';
   return { msgs: msgs.results || [], status: out };
 }
 
 async function geminiChat(env, sys, user) {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
-  const models = ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+  const models = ['gemini-2.0-flash'];
   for (const model of models) {
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20000),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
         body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
           generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
       });
@@ -61,10 +62,10 @@ async function geminiChat(env, sys, user) {
 async function openrouterChat(env, sys, user) {
   const key = env.OPENROUTER_API_KEY;
   if (!key) return null;
-  for (const model of ['google/gemma-4-26b-a4b-it:free', 'cohere/north-mini-code:free']) {
+  for (const model of ['cohere/north-mini-code:free']) {
     try {
       const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20000),
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
         body: JSON.stringify({ model, max_tokens: 200, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] })
       });
       if (!r.ok) continue;
@@ -98,10 +99,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Dialog 3 giliran antar karakter; tiap baris ditulis ke papan + dikirim ke Telegram user.
 export async function aiSayRetry(env, charId, prompt) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     try { const t = await aiSay(env, charId, prompt); if (t && t.length >= 15) return t; }
     catch (e) {}
-    await sleep(2500 + i * 2000);
+    await sleep(6000);
   }
   return null;
 }
@@ -117,6 +118,7 @@ export async function runDialogue(env, fromId, toId, topic, notify) {
   ];
   for (let i = 0; i < turnDefs.length; i++) {
     const t = turnDefs[i];
+    if (i > 0) await sleep(8000);
     await setStatus(env, t.who, 'mengetik');
     let line = await aiSayRetry(env, t.who, t.build());
     last = line;
