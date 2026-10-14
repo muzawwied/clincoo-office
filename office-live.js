@@ -28,12 +28,14 @@
   .ol-msg b{color:#e2e8f0;font-weight:600}
   .nt.ol-say{border-color:rgba(226,232,240,.45) !important;box-shadow:0 4px 12px rgba(2,6,23,.45) !important;z-index:9 !important}
   .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
-  #ol-feedBtn{position:fixed;top:50%;right:10px;transform:translateY(-50%);z-index:62;width:46px;height:46px;padding:0;
-    border-radius:50%;font:700 20px/46px system-ui,sans-serif;text-align:center;color:#fff;
-    background:rgba(15,18,25,.78);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px)}
-  #ol-feedBtn.ol-new::after{content:'';position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;
+  #ol-feedBtn{position:fixed;top:calc(12px + var(--st,12px));right:calc(116px + var(--sr,12px));z-index:62;width:42px;height:42px;padding:0;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:rgba(15,18,25,.55);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px);touch-action:manipulation}
+  #ol-feedBtn:active{transform:scale(.9);filter:brightness(1.15)}
+  #ol-feedBtn svg{width:20px;height:20px;display:block}
+  #ol-feedBtn.ol-new::after{content:'';position:absolute;top:4px;right:4px;width:11px;height:11px;border-radius:50%;
     background:#f43f5e;border:2px solid #0f172a}
-  #ol-feed{position:fixed;top:50%;right:64px;transform:translateY(-50%);z-index:61;width:min(80vw,282px);max-height:64vh;overflow:auto;padding:12px;display:none;
+  #ol-feed{position:fixed;top:calc(64px + var(--st,12px));right:calc(12px + var(--sr,12px));z-index:61;width:min(80vw,282px);max-height:60vh;overflow:auto;padding:12px;display:none;
     background:rgba(15,18,25,.85);border:1px solid rgba(255,255,255,.12);border-radius:16px;backdrop-filter:blur(10px)}
   #ol-feed.on{display:block}
   .ol-fi{font:500 12.5px/1.5 system-ui,sans-serif;color:#d1d5db;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07)}
@@ -42,7 +44,8 @@
   `;
   const stEl = document.createElement('style'); stEl.textContent = css; document.head.appendChild(stEl);
 
-  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.textContent = '💬'; feedBtn.title = 'Riwayat obrolan';
+  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.title = 'Riwayat obrolan';
+  feedBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
   const feed = document.createElement('div'); feed.id = 'ol-feed';
   feedBtn.onclick = () => { feed.classList.toggle('on'); if (feed.classList.contains('on')) feedBtn.classList.remove('ol-new'); };
   document.body.append(feedBtn, feed);
