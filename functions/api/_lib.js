@@ -45,7 +45,7 @@ async function geminiChat(env, sys, user) {
   for (const model of models) {
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20000),
         body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
           generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
       });
@@ -64,7 +64,7 @@ async function openrouterChat(env, sys, user) {
   for (const model of ['google/gemma-4-26b-a4b-it:free', 'cohere/north-mini-code:free']) {
     try {
       const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(20000),
         body: JSON.stringify({ model, max_tokens: 200, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] })
       });
       if (!r.ok) continue;
@@ -99,9 +99,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Dialog 3 giliran antar karakter; tiap baris ditulis ke papan + dikirim ke Telegram user.
 export async function aiSayRetry(env, charId, prompt) {
   for (let i = 0; i < 3; i++) {
-    const t = await aiSay(env, charId, prompt);
-    if (t) return t;
-    await sleep(3000 + i * 2000);
+    try { const t = await aiSay(env, charId, prompt); if (t && t.length >= 15) return t; }
+    catch (e) {}
+    await sleep(2500 + i * 2000);
   }
   return null;
 }
