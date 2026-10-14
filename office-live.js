@@ -9,8 +9,9 @@
   const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
 
   const css = `
-  .ol-msg{max-width:240px;font:500 12.5px/1.45 system-ui,sans-serif;color:#f1f5f9;text-align:left;
-    white-space:normal;margin-top:4px;padding-top:4px;border-top:1px solid rgba(226,232,240,.18)}
+  .ol-msg{max-width:250px;font:500 12.5px/1.5 system-ui,sans-serif;color:#aab4c3;text-align:left;
+    white-space:normal;margin:4px auto 0;padding-top:5px;border-top:1px solid rgba(226,232,240,.14)}
+  .ol-msg b{color:#e2e8f0;font-weight:600}
   .nt.ol-say{border-color:var(--dc) !important;box-shadow:0 0 18px var(--dc),0 4px 12px rgba(2,6,23,.4) !important;z-index:9 !important}
   .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
   #ol-feedBtn{position:fixed;top:14px;right:14px;z-index:62;font:700 13px/1 system-ui,sans-serif;color:#fff;padding:10px 14px;
@@ -118,13 +119,14 @@
     const cap = c.cap;
     cap.classList.remove('ol-typ');
     let msg = cap.querySelector('.ol-msg');
-    if (!msg) { msg = document.createElement('div'); msg.className = 'ol-msg'; cap.appendChild(msg); }
+    if (!msg) { msg = document.createElement('div'); msg.className = 'ol-msg';
+      const role = cap.querySelector('.r'); if (role) cap.insertBefore(msg, role); else cap.appendChild(msg); }
     msg.textContent = '';
     cap.classList.add('ol-say');
     const txt = String(text || '');
     for (let i = 0; i < txt.length; i++) {
       msg.textContent = txt.slice(0, i + 1) + '▌';
-      await sleep(16 + Math.random() * 26);
+      await sleep(9 + Math.random() * 18);
     }
     msg.textContent = txt;
     await sleep(Math.min(2600, 900 + txt.length * 26));
