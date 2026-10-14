@@ -165,7 +165,8 @@
     try {
       const r = await fetch('/api/board?since=' + lastId, { cache: 'no-store' });
       const j = await r.json();
-      if (!j.ok) return;
+      if (!j.ok) { feedBtn.textContent = '⚠ board ' + (j.error || ''); return; }
+      feedBtn.textContent = '💬 Riwayat ✓';
       statusNow = j.status || {}; applyStatus();
       const first = lastId === 0;
       for (const m of (j.msgs || [])) {
@@ -174,7 +175,7 @@
         queue.push(m);
       }
       if (!playing && queue.length) drain();
-    } catch (e) {}
+    } catch (e) { feedBtn.textContent = '⚠ poll ' + (e && e.message ? e.message : e); }
   }
 
   function start() {
@@ -182,7 +183,10 @@
     setInterval(poll, 1300);
   }
   const waitWorld = () => {
-    try { if (typeof CHARS !== 'undefined' && CHARS && CHARS.length) { start(); return; } } catch (e) {}
+    try {
+      if (typeof CHARS !== 'undefined' && CHARS && CHARS.length) { start(); return; }
+      feedBtn.textContent = '⏳ dunia...';
+    } catch (e) { feedBtn.textContent = '⚠ ' + (e && e.message ? e.message : e); }
     setTimeout(waitWorld, 400);
   };
   waitWorld();
