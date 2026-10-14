@@ -1141,7 +1141,7 @@ function shiftAct(c, h){
   if(R.guard){ if(c.patrolLeft > 0) return 'PATROLI'; if(r < 0.35){ c.patrolLeft = 4 + Math.floor(Math.random() * 3); return 'PATROLI'; } if(r < 0.42) return 'WC'; if(r < 0.5) return 'NGOPI'; return 'JAGA'; }
   if(R.cleaner){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return Math.random() < 0.5 ? 'SAPU' : 'PEL'; }
   if(R.cs){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return 'LAYANI'; }
-  if(r < 0.04) return 'WC'; if(r < 0.10) return 'NGOPI'; if(R.meet && r < 0.10 + R.meet) return 'METING'; return 'POST';
+  if(r < 0.04) return 'WC'; if(r < 0.10) return 'NGOPI'; if(r < 0.13) return 'NGOPI'; if(r < 0.15) return 'NONGKRONG'; if(r < 0.16) return 'NONTON'; if(R.meet && r < 0.16 + R.meet) return 'METING'; return 'POST';
 }
 function poiList(c, act){
   const R = c.role;
