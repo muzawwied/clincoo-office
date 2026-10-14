@@ -29,7 +29,7 @@
   feedBtn.onclick = () => feed.classList.toggle('on');
   document.body.append(feedBtn, feed);
 
-  let lastId = 0, queue = [], playing = false, statusNow = {};
+  let lastId = 0, queue = [], playing = false, statusNow = {}, loaded = false;
   let W = null;
   const world = () => {
     if (W) return W;
@@ -180,12 +180,14 @@
       if (!j.ok) { feedBtn.textContent = '⚠ board ' + (j.error || ''); return; }
       feedBtn.textContent = '💬 Riwayat ✓';
       statusNow = j.status || {}; applyStatus();
-      const first = lastId === 0;
       for (const m of (j.msgs || [])) {
+        if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
+        const isNew = loaded;
         lastId = Math.max(lastId, m.id);
-        if (first) { addFeed(m); continue; }
+        if (!isNew) { addFeed(m); continue; }
         queue.push(m);
       }
+      loaded = true;
       if (!playing && queue.length) drain();
     } catch (e) { feedBtn.textContent = '⚠ poll ' + (e && e.message ? e.message : e); }
   }
