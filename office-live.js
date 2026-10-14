@@ -1,97 +1,164 @@
-/* Clincoo Office LIVE — papan nama hidup + efek mengetik.
+/* Clincov2 Office LIVE v2 — bubble chat nyambung ke papan nama 3D.
+   Karakter yang disuruh bicara akan JALAN mendatangi targetnya dulu,
+   lalu papan namanya melebar jadi bubble dengan efek mengetik.
    Lapisan aditif: tidak mengubah logika 3D induk. */
 (() => {
-  const CH = {
-    rafa:  { name: 'Rafa',  role: 'Frontend Developer', color: '#38bdf8', emoji: '🧑‍💻' },
-    dimas: { name: 'Dimas', role: 'Backend Engineer',   color: '#a78bfa', emoji: '🧙‍♂️' },
-    sari:  { name: 'Sari',  role: 'UI/UX Designer',     color: '#f472b6', emoji: '🎨' },
-  };
-  const P = (id) => CH[(id || '').toLowerCase()] || { name: (id || 'Seseorang'), role: '', color: '#e5e7eb', emoji: '🙂' };
+  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3 }; // index LOOKS/CHARS
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pos = (c) => c.player.position;
+  const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
 
   const css = `
-  .ol-glass{background:rgba(15,18,25,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);border-radius:16px}
-  #ol-plate{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(24px) scale(.92);opacity:0;pointer-events:none;z-index:60;
-    width:min(92vw,540px);padding:14px 18px 16px;transition:all .45s cubic-bezier(.2,.9,.25,1.2);box-shadow:0 12px 48px rgba(0,0,0,.55)}
-  #ol-plate.on{opacity:1;transform:translateX(-50%) translateY(0) scale(1.06)}
-  #ol-plate.big{transform:translateX(-50%) translateY(0) scale(1.13)}
-  .ol-row{display:flex;align-items:center;gap:10px}
-  .ol-ava{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex:none;
-    background:rgba(255,255,255,.08);border:2px solid var(--c,#888);box-shadow:0 0 14px var(--c,#888)}
-  .ol-plate.on .ol-ava{animation:olPulse 1.6s ease-in-out infinite}
-  @keyframes olPulse{50%{box-shadow:0 0 26px var(--c,#888)}}
-  .ol-nm{font:800 20px/1.15 system-ui,sans-serif;color:#fff;letter-spacing:.3px}
-  .ol-rl{font:500 12px/1.2 system-ui,sans-serif;color:#9ca3af;margin-top:2px}
-  .ol-to{margin-left:auto;font:700 13px/1.2 system-ui,sans-serif;color:#fff;background:rgba(255,255,255,.1);
-    border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;white-space:nowrap}
-  #ol-bub{margin-top:10px;font:500 15px/1.5 system-ui,sans-serif;color:#f3f4f6;min-height:22px}
-  #ol-bub .ol-caret{display:inline-block;width:8px;height:16px;background:#fff;vertical-align:-2px;margin-left:2px;animation:olBlink .8s steps(1) infinite}
-  @keyframes olBlink{50%{opacity:0}}
-  #ol-typ{position:fixed;left:50%;transform:translateX(-50%);bottom:150px;z-index:59;font:600 13px/1 system-ui,sans-serif;color:#e5e7eb;
-    padding:8px 14px;border-radius:999px;opacity:0;transition:opacity .3s;pointer-events:none}
-  #ol-typ.on{opacity:1}
-  #ol-feedBtn{position:fixed;top:14px;right:14px;z-index:62;font:700 13px/1 system-ui,sans-serif;color:#fff;padding:10px 14px;border-radius:12px;
-    background:rgba(15,18,25,.7);border:1px solid rgba(255,255,255,.15);cursor:pointer;backdrop-filter:blur(8px)}
-  #ol-feed{position:fixed;top:56px;right:14px;z-index:61;width:min(88vw,300px);max-height:46vh;overflow:auto;padding:12px;display:none}
+  .ol-msg{max-width:240px;font:500 12.5px/1.45 system-ui,sans-serif;color:#f1f5f9;text-align:left;
+    white-space:normal;margin-top:4px;padding-top:4px;border-top:1px solid rgba(226,232,240,.18)}
+  .nt.ol-say{border-color:var(--dc) !important;box-shadow:0 0 18px var(--dc),0 4px 12px rgba(2,6,23,.4) !important;z-index:9 !important}
+  .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
+  #ol-feedBtn{position:fixed;top:14px;right:14px;z-index:62;font:700 13px/1 system-ui,sans-serif;color:#fff;padding:10px 14px;
+    border-radius:12px;background:rgba(15,18,25,.7);border:1px solid rgba(255,255,255,.15);cursor:pointer;backdrop-filter:blur(8px)}
+  #ol-feed{position:fixed;top:56px;right:14px;z-index:61;width:min(88vw,300px);max-height:46vh;overflow:auto;padding:12px;display:none;
+    background:rgba(15,18,25,.85);border:1px solid rgba(255,255,255,.12);border-radius:16px;backdrop-filter:blur(10px)}
   #ol-feed.on{display:block}
   .ol-fi{font:500 12.5px/1.5 system-ui,sans-serif;color:#d1d5db;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07)}
   .ol-fi b{color:#fff}
   .ol-t{color:#9ca3af;font-size:11px;margin-right:6px}
   `;
-  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const stEl = document.createElement('style'); stEl.textContent = css; document.head.appendChild(stEl);
 
-  const plate = document.createElement('div'); plate.id = 'ol-plate'; plate.className = 'ol-glass';
-  plate.innerHTML = '<div class="ol-row"><div class="ol-ava"></div><div><div class="ol-nm"></div><div class="ol-rl"></div></div><div class="ol-to"></div></div><div id="ol-bub"></div>';
-  const typ = document.createElement('div'); typ.id = 'ol-typ'; typ.className = 'ol-glass';
-  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.textContent = '💬 Riwayat kantor';
-  const feed = document.createElement('div'); feed.id = 'ol-feed'; feed.className = 'ol-glass';
+  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.textContent = '💬 Riwayat';
+  const feed = document.createElement('div'); feed.id = 'ol-feed';
   feedBtn.onclick = () => feed.classList.toggle('on');
-  document.body.append(plate, typ, feedBtn, feed);
+  document.body.append(feedBtn, feed);
 
-  const bub = plate.querySelector('#ol-bub'), ava = plate.querySelector('.ol-ava'),
-        nm = plate.querySelector('.ol-nm'), rl = plate.querySelector('.ol-rl'), to = plate.querySelector('.ol-to');
-
-  let lastId = 0, queue = [], playing = false, statusNow = {};
+  let CHARS = null, lastId = 0, queue = [], playing = false, statusNow = {};
   const jam = (ts) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+  const charById = (id) => {
+    const i = MAP[(id || '').toLowerCase()];
+    return (CHARS && i !== undefined && CHARS[i]) ? CHARS[i] : null;
+  };
+  const nameById = (id) => {
+    const c = charById(id); return c ? c.name : (id === 'user' ? '👤' : id);
+  };
+
+  // ---- rute generik per karakter (meniru route() bawaan, parameternya eksplisit) ----
+  function routeFor(c, p) {
+    try {
+      const pp = pos(c), pts = [];
+      let f = c.pFloor, x = pp.x, z = pp.z, first = true;
+      while (f !== p.floor) {
+        const up = p.floor > f, S = STAIRS.find((q) => up ? q.lo === f : q.hi === f);
+        if (!S) return null;
+        const from = up ? S.nb : S.nt, to = up ? S.nt : S.nb, nf = up ? S.hi : S.lo;
+        const a = astar(f, x, z, from.x, from.z); if (!a) return null;
+        pts.push(...(first ? a : a.slice(1))); first = false;
+        pts.push({ x: to.x, z: to.z, stair: S, to: nf, up });
+        f = nf; x = to.x; z = to.z;
+      }
+      const a = astar(f, x, z, p.ax, p.az); if (!a) return null;
+      pts.push(...(first ? a : a.slice(1)));
+      if (pts.length && Math.hypot(pts[0].x - pp.x, pts[0].z - pp.z) < 0.15) pts.shift();
+      return pts;
+    } catch (e) { return null; }
+  }
+
+  function interruptAct(c) {
+    if (c.st === 'ACT' || c.st === 'SITIN' || c.st === 'SITOUT') {
+      const pp = pos(c);
+      c.pendingAct = null;
+      c.st = 'SITOUT'; c.stT = 0;
+      c.sit0 = { x: pp.x, z: pp.z, yaw: c.yawNow };
+    }
+  }
+
+  async function walkTo(c, target, timeoutMs) {
+    if (c.pFloor === target.pFloor && d2(c, target) < 2.4) return true;
+    interruptAct(c);
+    const t0 = Date.now();
+    // tunggu sampai siap menerima rute (tidak sedang duduk/aktif)
+    while (Date.now() - t0 < timeoutMs * 0.45 && (c.st === 'ACT' || c.st === 'SITIN' || c.st === 'SITOUT')) await sleep(500);
+    const tp = pos(target);
+    let pts = null;
+    const offs = [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [2, 2], [-2, -2], [2.6, 0], [-2.6, 0], [0, 2.6], [0, -2.6]];
+    for (const [dx, dz] of offs) {
+      pts = routeFor(c, { floor: target.pFloor, ax: tp.x + dx, az: tp.z + dz });
+      if (pts) break;
+    }
+    if (pts && pts.length) {
+      c.path = pts; c.poi = null; c.pendingAct = null;
+      c.st = 'WALK'; c.stT = 0; c.ghostT = 0;
+    }
+    while (Date.now() - t0 < timeoutMs) {
+      if ((c.pFloor === target.pFloor && d2(c, target) < 2.4) || (c.st !== 'WALK' && c.path && !c.path.length && c.st !== 'SITOUT')) return true;
+      await sleep(400);
+    }
+    return false;
+  }
+
+  function faceTo(c, target) {
+    const a = pos(c), b = pos(target);
+    c.yawNow = Math.atan2(b.x - a.x, b.z - a.z);
+    try { c.player.rotation.y = c.yawNow; } catch (e) {}
+  }
+
+  // ---- papan nama melebar jadi bubble + efek mengetik ----
+  async function speak(c, text) {
+    if (!c || !c.cap) { await sleep(600); return; }
+    const cap = c.cap;
+    cap.classList.remove('ol-typ');
+    let msg = cap.querySelector('.ol-msg');
+    if (!msg) { msg = document.createElement('div'); msg.className = 'ol-msg'; cap.appendChild(msg); }
+    msg.textContent = '';
+    cap.classList.add('ol-say');
+    const txt = String(text || '');
+    for (let i = 0; i < txt.length; i++) {
+      msg.textContent = txt.slice(0, i + 1) + '▌';
+      await sleep(16 + Math.random() * 26);
+    }
+    msg.textContent = txt;
+    await sleep(Math.min(2600, 900 + txt.length * 26));
+    cap.classList.remove('ol-say');
+    await sleep(420);
+    if (msg.parentNode) msg.remove();
+  }
+
+  async function process(m) {
+    const A = charById(m.from_c);
+    const B = charById(m.to_c);
+    if (!A) { addFeed(m); return; }
+    const savedWait = A.waitDur;
+    A.waitDur = 1e9;
+    if (B && B !== A) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
+    addFeed(m);
+    await speak(A, m.text);
+    A.waitDur = savedWait;
+    if (B) { const bw = B.waitDur; B.waitDur = Math.max(bw, 4); }
+  }
 
   function addFeed(m) {
     const el = document.createElement('div'); el.className = 'ol-fi';
-    const f = P(m.from_c), t = m.to_c === 'user' ? '👤' : P(m.to_c).name;
-    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b style="color:${f.color}">${f.name}</b> → <b>${t}</b><br>${m.text.slice(0,140)}`;
+    const f = charById(m.from_c);
+    const dot = f ? 'var(--dc)' : '#e5e7eb';
+    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b style="color:${dot}">${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 140).replace(/</g, '&lt;')}`;
     feed.prepend(el);
     while (feed.children.length > 12) feed.lastChild.remove();
   }
 
-  async function play(m) {
-    const f = P(m.from_c), t = m.to_c === 'user' ? '👤 Seseorang' : P(m.to_c).name;
-    plate.style.setProperty('--c', f.color);
-    ava.textContent = f.emoji; nm.textContent = f.name; rl.textContent = f.role;
-    to.textContent = '→ ' + t;
-    bub.innerHTML = '<span class="ol-caret"></span>';
-    plate.classList.add('on'); requestAnimationFrame(() => plate.classList.add('big'));
-    const txt = String(m.text || '');
-    const span = document.createElement('span'); bub.prepend(span);
-    for (let i = 0; i < txt.length; i++) {
-      span.textContent += txt[i];
-      await new Promise(r => setTimeout(r, 14 + Math.random() * 26));
-    }
-    bub.querySelector('.ol-caret').remove();
-    await new Promise(r => setTimeout(r, 1900));
-    plate.classList.remove('big');
-    await new Promise(r => setTimeout(r, 420));
-    plate.classList.remove('on');
-    await new Promise(r => setTimeout(r, 650));
-  }
-
   async function drain() {
     playing = true;
-    while (queue.length) await play(queue.shift());
+    while (queue.length) { const m = queue.shift(); try { await process(m); } catch (e) {} }
     playing = false;
   }
 
   function applyStatus() {
-    const typing = Object.entries(statusNow).filter(([c, s]) => s === 'mengetik').map(([c]) => P(c).name);
-    if (typing.length && !playing) { typ.textContent = '⌨️ ' + typing.join(', ') + ' sedang mengetik...'; typ.classList.add('on'); }
-    else typ.classList.remove('on');
+    for (const [id, s] of Object.entries(statusNow)) {
+      const c = charById(id);
+      if (!c || s !== 'mengetik') continue;
+      if (!playing || queue.every((m) => m.from_c !== id)) c.cap && c.cap.classList.add('ol-typ');
+    }
+    // hapus penanda dari karakter yang tidak sedang mengetik
+    if (CHARS) for (const [id] of Object.entries(statusNow)) {
+      if (statusNow[id] !== 'mengetik') { const c = charById(id); c && c.cap && c.cap.classList.remove('ol-typ'); }
+    }
   }
 
   async function poll() {
@@ -104,11 +171,19 @@
       for (const m of (j.msgs || [])) {
         lastId = Math.max(lastId, m.id);
         if (first) { addFeed(m); continue; }
-        addFeed(m); queue.push(m);
+        queue.push(m);
       }
       if (!playing && queue.length) drain();
     } catch (e) {}
   }
-  poll();
-  setInterval(poll, 1300);
+
+  function start() {
+    poll();
+    setInterval(poll, 1300);
+  }
+  const waitWorld = () => {
+    try { if (typeof CHARS !== 'undefined' && CHARS && CHARS.length) { start(); return; } } catch (e) {}
+    setTimeout(waitWorld, 400);
+  };
+  waitWorld();
 })();
