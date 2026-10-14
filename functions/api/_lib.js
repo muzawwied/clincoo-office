@@ -19,6 +19,8 @@ export async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_status (char TEXT PRIMARY KEY, status TEXT, ts REAL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_chat (char TEXT PRIMARY KEY, chat_id TEXT)'),
   ]);
+  try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN kind TEXT').run(); } catch (e) {}
+  try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN place TEXT').run(); } catch (e) {}
 }
 
 export async function setStatus(env, char, status) {
@@ -26,14 +28,14 @@ export async function setStatus(env, char, status) {
     .bind(String(char), String(status), Date.now()).run();
 }
 
-export async function logMsg(env, from, to, text) {
-  const r = await env.DB.prepare('INSERT INTO office_msg (ts, from_c, to_c, text) VALUES (?, ?, ?, ?)')
-    .bind(Date.now(), String(from), String(to || 'kantor'), String(text).slice(0, 800)).run();
+export async function logMsg(env, from, to, text, kind, place) {
+  const r = await env.DB.prepare('INSERT INTO office_msg (ts, from_c, to_c, text, kind, place) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(Date.now(), String(from), String(to || 'kantor'), String(text).slice(0, 800), kind || null, place || null).run();
   return (r.meta && r.meta.last_row_id) || 0;
 }
 
 export async function getBoard(env, since) {
-  const msgs = await env.DB.prepare('SELECT id, ts, from_c, to_c, text FROM office_msg WHERE id > ? ORDER BY id ASC LIMIT 80').bind(Number(since) || 0).all();
+  const msgs = await env.DB.prepare('SELECT id, ts, from_c, to_c, text, kind, place FROM office_msg WHERE id > ? ORDER BY id ASC LIMIT 80').bind(Number(since) || 0).all();
   const st = await env.DB.prepare('SELECT char, status, ts FROM office_status').all();
   const now = Date.now();
   const out = {};
@@ -132,3 +134,53 @@ export async function runDialogue(env, fromId, toId, topic, notify) {
   await setStatus(env, fromId, 'idle');
   await setStatus(env, toId, 'idle');
 }
+
+
+// ===== PERINTAH CEO: panggil / suruh ke tempat =====
+// Frontend yang mengeksekusi gerakan via papan pesan (kind='goto').
+export const PLACE_WORDS = {
+  kantor: 'kantor', meja: 'meja', kerja: 'meja',
+  ngopi: 'ngopi', pantry: 'ngopi', dapur: 'ngopi',
+  gym: 'gym', olahraga: 'gym', lari: 'gym',
+  nongkrong: 'nongkrong', santai: 'nongkrong', sofa: 'nongkrong',
+  nonton: 'nonton', tv: 'nonton',
+  tidur: 'tidur', istirahat: 'tidur'
+};
+export const PLACE_LABEL = {
+  kantor: 'kantor', meja: 'meja kerjanya', ngopi: 'pantry', gym: 'gym',
+  nongkrong: 'area santai', nonton: 'depan TV', tidur: 'ruang istirahat'
+};
+
+// Suruh summoner mendatangi target lalu menyampaikan perintah; target lalu berjalan ke tempat.
+export async function runSummon(env, summonerId, targetId, place, placeOnly) {
+  const S = persona(summonerId), T = persona(targetId);
+  if (!S || !T) throw new Error('karakter tidak dikenal');
+  place = place || 'kantor';
+  const label = PLACE_LABEL[place] || place;
+  await setStatus(env, summonerId, 'mengetik');
+  let line = await aiSay(env, summonerId, placeOnly
+    ? `CEO menyuruhmu menyampaikan ke ${T.name} (${T.role}): "${dia_atau_kamu(T.name)} harus ke ${label} sekarang." Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`
+    : `CEO memanggil ${T.name} (${T.role}) ke ${label}. Kamu disuruh menyampaikannya. Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`);
+  if (!line || line.length < 8) line = `Hei ${T.name}, kamu dipanggil sama CEO, ke ${label} ya!`;
+  await logMsg(env, summonerId, targetId, line);
+  await setStatus(env, summonerId, 'bicara');
+
+  // beri jeda agar dramaturgi jalan (summoner selesai bicara, target merespons)
+  await sleep(3000);
+  await setStatus(env, targetId, 'mengetik');
+  let ack = await aiSay(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
+  if (!ack || ack.length < 8) ack = `Oke, aku ke ${label} sekarang ya!`;
+  await logMsg(env, targetId, 'user', ack, 'goto', place);
+  await setStatus(env, targetId, 'bicara');
+
+  // notifikasi ke chat Telegram milik target (jika ada)
+  try {
+    const tTok = env['CHAR_' + targetId.toUpperCase() + '_TOKEN'];
+    const row = await env.DB.prepare('SELECT chat_id FROM office_chat WHERE char = ?').bind(targetId).first();
+    if (tTok && row && row.chat_id) await tgSend(tTok, row.chat_id, `${S.name} datang menyampaikan perintah CEO: <i>"${line}"</i>\n${T.name} sekarang menuju ${label} 🏃`);
+  } catch (e) {}
+  await sleep(15000);
+  await setStatus(env, summonerId, 'idle');
+  await setStatus(env, targetId, 'idle');
+}
+function dia_atau_kamu(n) { return n; }
