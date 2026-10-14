@@ -8,8 +8,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const from = String(body.from || 'rafa').toLowerCase();
     const to = String(body.to || 'dimas').toLowerCase();
     const topic = String(body.topic || 'jadwal rilis minggu ini').slice(0, 300);
-    const { ensureSchema, runDialogue } = await import('./_lib.js');
+    const { ensureSchema, runDialogue, runSummon } = await import('./_lib.js');
     await ensureSchema(env);
+    if (String(body.action || '').toLowerCase() === 'summon') {
+      waitUntil(runSummon(env, from, to, String(body.place || 'kantor')).catch(() => {}));
+      return Response.json({ ok: true, action: 'summon', from, to, place: body.place || 'kantor' });
+    }
     waitUntil(runDialogue(env, from, to, topic, null));
     return Response.json({ ok: true, from, to, topic, note: 'dialog berjalan, pantau /api/board' });
   } catch (e) {
