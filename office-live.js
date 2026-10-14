@@ -3,10 +3,23 @@
    lalu papan namanya melebar jadi bubble dengan efek mengetik.
    Lapisan aditif: tidak mengubah logika 3D induk. */
 (() => {
-  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3 }; // index LOOKS/CHARS
+  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pos = (c) => c.player.position;
   const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
+
+  // tempat tujuan perintah CEO (koordinat dari POI scene)
+  const PLACES = {
+    kantor:    { f: 0, x: -22.5, z: -13 },
+    meja:      null, // dihitung per karakter (zona kerja masing-masing)
+    ngopi:     { f: 0, x: 22.6,  z: -18.35 },
+    gym:       { f: 0, x: 18.2,  z: 7.0 },
+    nongkrong: { f: 0, x: -26.0, z: 1.7 },
+    nonton:    { f: 0, x: 22.95, z: -2.9 },
+    tidur:     { f: 0, x: 12.25, z: 8.0 }
+  };
+  // zona kerja per karakter (index CHARS) utk "ke meja"
+  const DESK = { 0: { f: 0, x: -8, z: 2 }, 1: { f: 0, x: -8, z: 2 }, 2: { f: 0, x: 3, z: -13 }, 3: { f: 0, x: 14, z: -13 } };
 
   const css = `
   .ol-msg{max-width:158px;max-height:47px;overflow:hidden;font:500 11px/1.38 system-ui,sans-serif;color:#aab4c3;text-align:left;
@@ -108,6 +121,30 @@
     return false;
   }
 
+  async function walkToPoint(c, p, timeoutMs) {
+    if (!c || !p) return false;
+    if (c.pFloor === p.f && Math.hypot(pos(c).x - p.x, pos(c).z - p.z) < 2.0) return true;
+    interruptAct(c);
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs * 0.45 && (c.st === 'ACT' || c.st === 'SITIN' || c.st === 'SITOUT')) await sleep(500);
+    let pts = null;
+    const offs = [[0, 0], [1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5], [2, 2], [-2, -2], [2.6, 0], [-2.6, 0], [0, 2.6], [0, -2.6]];
+    for (const [dx, dz] of offs) {
+      pts = routeFor(c, { floor: p.f, ax: p.x + dx, az: p.z + dz });
+      if (pts) break;
+    }
+    if (pts && pts.length) {
+      c.path = pts; c.poi = null; c.pendingAct = null;
+      c.st = 'WALK'; c.stT = 0; c.ghostT = 0;
+    }
+    while (Date.now() - t0 < timeoutMs) {
+      if (c.pFloor === p.f && Math.hypot(pos(c).x - p.x, pos(c).z - p.z) < 2.2) return true;
+      if (c.st !== 'WALK' && c.path && !c.path.length && c.st !== 'SITOUT') return true;
+      await sleep(400);
+    }
+    return false;
+  }
+
   function faceTo(c, target) {
     const a = pos(c), b = pos(target);
     c.yawNow = Math.atan2(b.x - a.x, b.z - a.z);
@@ -142,6 +179,15 @@
     if (!A) { addFeed(m); return; }
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
+    if (m.kind === 'goto') {
+      const place = PLACES[m.place] || DESK[A.idx];
+      await walkToPoint(A, place, 20000);
+      addFeed(m);
+      await speak(A, m.text);
+      A.yawNow = 0;
+      A.waitDur = savedWait;
+      return;
+    }
     if (B && B !== A) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
     addFeed(m);
     await speak(A, m.text);
