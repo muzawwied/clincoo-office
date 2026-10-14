@@ -28,9 +28,12 @@
   .ol-msg b{color:#e2e8f0;font-weight:600}
   .nt.ol-say{border-color:rgba(226,232,240,.45) !important;box-shadow:0 4px 12px rgba(2,6,23,.45) !important;z-index:9 !important}
   .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
-  #ol-feedBtn{position:fixed;top:14px;right:14px;z-index:62;font:700 13px/1 system-ui,sans-serif;color:#fff;padding:10px 14px;
-    border-radius:12px;background:rgba(15,18,25,.7);border:1px solid rgba(255,255,255,.15);cursor:pointer;backdrop-filter:blur(8px)}
-  #ol-feed{position:fixed;top:56px;right:14px;z-index:61;width:min(88vw,300px);max-height:46vh;overflow:auto;padding:12px;display:none;
+  #ol-feedBtn{position:fixed;top:50%;right:10px;transform:translateY(-50%);z-index:62;width:46px;height:46px;padding:0;
+    border-radius:50%;font:700 20px/46px system-ui,sans-serif;text-align:center;color:#fff;
+    background:rgba(15,18,25,.78);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px)}
+  #ol-feedBtn.ol-new::after{content:'';position:absolute;top:3px;right:3px;width:11px;height:11px;border-radius:50%;
+    background:#f43f5e;border:2px solid #0f172a}
+  #ol-feed{position:fixed;top:50%;right:64px;transform:translateY(-50%);z-index:61;width:min(80vw,282px);max-height:64vh;overflow:auto;padding:12px;display:none;
     background:rgba(15,18,25,.85);border:1px solid rgba(255,255,255,.12);border-radius:16px;backdrop-filter:blur(10px)}
   #ol-feed.on{display:block}
   .ol-fi{font:500 12.5px/1.5 system-ui,sans-serif;color:#d1d5db;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07)}
@@ -39,9 +42,9 @@
   `;
   const stEl = document.createElement('style'); stEl.textContent = css; document.head.appendChild(stEl);
 
-  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.textContent = '💬 Riwayat';
+  const feedBtn = document.createElement('button'); feedBtn.id = 'ol-feedBtn'; feedBtn.textContent = '💬'; feedBtn.title = 'Riwayat obrolan';
   const feed = document.createElement('div'); feed.id = 'ol-feed';
-  feedBtn.onclick = () => feed.classList.toggle('on');
+  feedBtn.onclick = () => { feed.classList.toggle('on'); if (feed.classList.contains('on')) feedBtn.classList.remove('ol-new'); };
   document.body.append(feedBtn, feed);
 
   let lastId = 0, queue = [], playing = false, statusNow = {}, loaded = false;
@@ -230,8 +233,9 @@
     try {
       const r = await fetch('/api/board?since=' + lastId, { cache: 'no-store' });
       const j = await r.json();
-      if (!j.ok) { feedBtn.textContent = '⚠ board ' + (j.error || ''); return; }
-      feedBtn.textContent = '💬 Riwayat ✓';
+      if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); feedBtn.classList.add('ol-new'); return; }
+      feedBtn.title = 'Riwayat obrolan';
+      if (!feed.classList.contains('on')) feedBtn.classList.add('ol-new');
       statusNow = j.status || {}; applyStatus();
       for (const m of (j.msgs || [])) {
         if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
@@ -242,7 +246,7 @@
       }
       loaded = true;
       if (!playing && queue.length) drain();
-    } catch (e) { feedBtn.textContent = '⚠ poll ' + (e && e.message ? e.message : e); }
+    } catch (e) { feedBtn.title = 'poll: ' + (e && e.message ? e.message : e); feedBtn.classList.add('ol-new'); }
   }
 
   function start() {
