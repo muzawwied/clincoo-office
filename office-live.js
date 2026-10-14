@@ -22,11 +22,11 @@
   const DESK = { 0: { f: 0, x: -8, z: 2 }, 1: { f: 0, x: -8, z: 2 }, 2: { f: 0, x: 3, z: -13 }, 3: { f: 0, x: 14, z: -13 } };
 
   const css = `
-  .ol-msg{max-width:158px;max-height:47px;overflow:hidden;font:500 11px/1.38 system-ui,sans-serif;color:#aab4c3;text-align:left;
-    white-space:normal;margin:3px auto 0;padding-top:4px;border-top:1px solid rgba(226,232,240,.13);
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+  .ol-msg{max-width:132px;max-height:31px;overflow:hidden;font:500 10.5px/1.32 system-ui,sans-serif;color:#aab4c3;text-align:left;
+    white-space:normal;margin:2px auto 0;padding-top:3px;border-top:1px solid rgba(226,232,240,.13);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .ol-msg b{color:#e2e8f0;font-weight:600}
-  .nt.ol-say{border-color:var(--dc) !important;box-shadow:0 0 18px var(--dc),0 4px 12px rgba(2,6,23,.4) !important;z-index:9 !important}
+  .nt.ol-say{border-color:rgba(226,232,240,.45) !important;box-shadow:0 4px 12px rgba(2,6,23,.45) !important;z-index:9 !important}
   .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
   #ol-feedBtn{position:fixed;top:14px;right:14px;z-index:62;font:700 13px/1 system-ui,sans-serif;color:#fff;padding:10px 14px;
     border-radius:12px;background:rgba(15,18,25,.7);border:1px solid rgba(255,255,255,.15);cursor:pointer;backdrop-filter:blur(8px)}
@@ -177,6 +177,10 @@
     const A = charById(m.from_c);
     const B = charById(m.to_c);
     if (!A) { addFeed(m); return; }
+    // pesan CEO->bot dan bot->CEO cukup di Riwayat saja (tak perlu berdiri & ngomong),
+    // kecuali eksekusi perintah goto yang memang harus diperankan karakter
+    if (m.from_c === 'user' && m.kind !== 'goto') { addFeed(m); return; }
+    if (m.to_c === 'user' && m.kind !== 'goto') { addFeed(m); return; }
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
     if (m.kind === 'goto') {
