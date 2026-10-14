@@ -27,7 +27,7 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .ol-msg b{color:#e2e8f0;font-weight:600}
   .nt.ol-say{border-color:rgba(226,232,240,.45) !important;box-shadow:0 4px 12px rgba(2,6,23,.45) !important;z-index:9 !important}
-  .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#93c5fd;padding-top:3px}
+  .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#aab4c3;padding-top:3px}
   #ol-feedBtn{position:fixed;top:calc(12px + var(--st,12px));right:calc(116px + var(--sr,12px));z-index:62;width:42px;height:42px;padding:0;
     border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;
     background:rgba(15,18,25,.55);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px);touch-action:manipulation}
@@ -207,9 +207,7 @@
 
   function addFeed(m) {
     const el = document.createElement('div'); el.className = 'ol-fi';
-    const f = charById(m.from_c);
-    const dot = f ? 'var(--dc)' : '#e5e7eb';
-    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b style="color:${dot}">${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 140).replace(/</g, '&lt;')}`;
+    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b>${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 140).replace(/</g, '&lt;')}`;
     feed.prepend(el);
     while (feed.children.length > 12) feed.lastChild.remove();
   }
