@@ -317,7 +317,8 @@ const LOOKS = [
   {name:'dr. Nadia', g:'f', skin:0xe8b890, accent:0x38bdf8, outfit:12, hoodUp:false, hair:{c:0x1a1210, s:'pony'}, work:12},
   {name:'Lina',     g:'f', skin:0xf0c8a0, accent:0xf472b6, outfit:17, hoodUp:false, hair:{c:0x2a1a12, s:'bun'}, work:17},
   {name:'Pak Joko', g:'m', skin:0xb9825a, accent:0xfacc15, outfit:18, hoodUp:false, hair:{c:0x121212, s:'short'}, work:18},
-  {name:'Bu Tini',  g:'f', skin:0xc68642, accent:0x2a9d8f, outfit:19, hoodUp:false, hair:{c:0x1f1a17, s:'bun'}, work:19}
+  {name:'Bu Tini',  g:'f', skin:0xc68642, accent:0x2a9d8f, outfit:19, hoodUp:false, hair:{c:0x1f1a17, s:'bun'}, work:19},
+  {name:'Vylonium', g:'m', skin:0xf0c8a0, accent:0x4f7cff, outfit:0, hoodUp:false, hair:{c:0x2a1a12, s:'short'}}
 ];
 function drawLogo(L, hex){
   const r = (hex >> 16 & 255) / 255, g = (hex >> 8 & 255) / 255, b = (hex & 255) / 255, lum = 0.3 * r + 0.59 * g + 0.11 * b;
@@ -1080,11 +1081,12 @@ function updTimeUI(){
 /* ===== peran & tugas tiap karakter ===== */
 const WK = [[8.5, 12], [13, 17.5]];
 const ROLES = [
-  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0.2, shift:WK}, {t:'Developer', zone:[0, -16, 0, -4, 8], shift:WK},
+  {t:'Frontend Dev', zone:[0, -16, 0, -4, 8], meet:0.15, shift:WK}, {t:'Developer', zone:[0, -16, 0, -4, 8], shift:WK},
   {t:'UI/UX Designer', zone:[0, -4, 10, -20, -6], shift:WK}, {t:'DevOps', zone:[0, 10, 18, -20, -6], shift:WK},
   {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:WK}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:WK},
   {t:'Dokter', doctor:true, shift:[[7, 18]]}, {t:'Customer Service', cs:true, shift:[[8.5, 12], [13, 17]]},
-  {t:'Satpam', guard:true, shift:[[7, 19]]}, {t:'Kebersihan', cleaner:true, shift:[[6.5, 15]]}
+  {t:'Satpam', guard:true, shift:[[7, 19]]}, {t:'Kebersihan', cleaner:true, shift:[[6.5, 15]]},
+  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0.1, shift:WK}
 ];
 const DOCROOM = {TYPE:1, POST:1, BELAJAR:1, DUDUK:1, NGOPI:1, SIKAT:1, GANTI:1, TIDUR:1, RACIK:1, PERIKSA:1};
 const inInfirmary = p => p.floor === 2 && p.sx >= 2 && p.sx <= 14 && p.sz >= -9 && p.sz <= 8;
