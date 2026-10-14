@@ -27,7 +27,7 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .ol-msg b{color:#e2e8f0;font-weight:600}
   .nt.ol-say{border-color:rgba(226,232,240,.45) !important;box-shadow:0 4px 12px rgba(2,6,23,.45) !important;z-index:9 !important}
-  .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;font:600 10.5px/1 system-ui,sans-serif;color:#aab4c3;padding-top:3px}
+  .nt.ol-typ::after{content:'\\2328 mengetik...';display:block;position:static;left:auto;bottom:auto;width:auto;height:auto;background:none;border:none;transform:none;max-width:132px;margin:2px auto 0;padding-top:3px;border-top:1px solid rgba(226,232,240,.13);font:600 10.5px/1.32 system-ui,sans-serif;color:#aab4c3;text-align:center}
   #ol-feedBtn{position:fixed;top:calc(12px + var(--st,12px));right:calc(116px + var(--sr,12px));z-index:62;width:42px;height:42px;padding:0;
     border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;
     background:rgba(15,18,25,.55);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px);touch-action:manipulation}
