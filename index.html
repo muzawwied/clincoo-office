@@ -2426,6 +2426,12 @@ function animate(t){
   renderer.render(scene, camera);
   updCaps();
 }
+window.__OFFICE = {
+  get CHARS(){ try { return CHARS; } catch(e) { return []; } },
+  get STAIRS(){ try { return STAIRS; } catch(e) { return []; } },
+  get astar(){ try { return astar; } catch(e) { return null; } },
+  get FY(){ try { return FY; } catch(e) { return []; } }
+};
 window.onload = init;
 </script>
 <script src="office-live.js" defer></script>
