@@ -29,12 +29,22 @@
   feedBtn.onclick = () => feed.classList.toggle('on');
   document.body.append(feedBtn, feed);
 
-  let CHARS = null, lastId = 0, queue = [], playing = false, statusNow = {};
+  let lastId = 0, queue = [], playing = false, statusNow = {};
+  let W = null;
+  const world = () => {
+    if (W) return W;
+    try { if (window.__OFFICE && window.__OFFICE.CHARS && window.__OFFICE.CHARS.length)
+      return (W = { CHARS: window.__OFFICE.CHARS, STAIRS: window.__OFFICE.STAIRS, astar: window.__OFFICE.astar, FY: window.__OFFICE.FY }); } catch (e) {}
+    try { if (typeof CHARS !== 'undefined' && CHARS && CHARS.length)
+      return (W = { CHARS, STAIRS: (typeof STAIRS !== 'undefined' ? STAIRS : null), astar: (typeof astar !== 'undefined' ? astar : null), FY: (typeof FY !== 'undefined' ? FY : null) }); } catch (e) {}
+    return null;
+  };
   const jam = (ts) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
   const charById = (id) => {
+    const w = world(); if (!w) return null;
     const i = MAP[(id || '').toLowerCase()];
-    return (CHARS && i !== undefined && CHARS[i]) ? CHARS[i] : null;
+    return (i !== undefined && w.CHARS[i]) ? w.CHARS[i] : null;
   };
   const nameById = (id) => {
     const c = charById(id); return c ? c.name : (id === 'user' ? '👤' : id);
@@ -43,6 +53,8 @@
   // ---- rute generik per karakter (meniru route() bawaan, parameternya eksplisit) ----
   function routeFor(c, p) {
     try {
+      const w = world(); if (!w || !w.astar || !w.STAIRS) return null;
+      const astar = w.astar, STAIRS = w.STAIRS;
       const pp = pos(c), pts = [];
       let f = c.pFloor, x = pp.x, z = pp.z, first = true;
       while (f !== p.floor) {
@@ -182,12 +194,5 @@
     poll();
     setInterval(poll, 1300);
   }
-  const waitWorld = () => {
-    try {
-      if (typeof CHARS !== 'undefined' && CHARS && CHARS.length) { start(); return; }
-      feedBtn.textContent = '⏳ dunia...';
-    } catch (e) { feedBtn.textContent = '⚠ ' + (e && e.message ? e.message : e); }
-    setTimeout(waitWorld, 400);
-  };
-  waitWorld();
+  start();
 })();
