@@ -27,7 +27,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // pola ajak rekan: "ke <nama> [:] <topik>" / "@<nama> <topik>"
-    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(rafa|dimas|sari)\b[\s:,-]*(.*)$/i) || text.match(/^@(rafa|dimas|sari)\s+(.*)$/i);
+    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(rafa|dimas|sari|bagas)\b[\s:,-]*(.*)$/i) || text.match(/^@(rafa|dimas|sari|bagas)\s+(.*)$/i);
     if (m && m[1].toLowerCase() !== c) {
       const target = m[1].toLowerCase();
       const topic = (m[2] || 'pekerjaan hari ini').trim();
