@@ -295,7 +295,7 @@
 
   function addFeed(m) {
     const el = document.createElement('div'); el.className = 'ol-fi';
-    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b>${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 140).replace(/</g, '&lt;')}`;
+    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b>${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 600).replace(/</g, '&lt;')}`;
     feed.prepend(el);
     while (feed.children.length > 12) feed.lastChild.remove();
   }

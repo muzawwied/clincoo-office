@@ -5,13 +5,13 @@ suruh lewat Telegram → karakter bekerja real-time → di papan nama (web) nama
 karakter membesar dan pesannya muncul bertahap seperti sedang mengetik.
 
 - Web: https://vylonium.biz.id
-- Karakter: Rafa (Frontend), Dimas (Backend), Sari (Desain)
+- Karakter (nama = nama bot Telegram): Muzawwied (Frontend), Vylonium (Backend), Devconium (Desain), Clincoo (QA)
 - API:
   - `GET /api/board?since=<id>` — papan pesan + status
   - `POST /api/telegram?c=<karakter>&s=<token bot>` — webhook tiap bot
   - `POST /api/simulate` — pemicu dialog (header `X-Admin-Key`), body `{from,to,topic}`
 
-Format suruhan lewat Telegram: `ke Dimas: bahas deploy besok` atau obrolan bebas.
+Format suruhan lewat Telegram: `ke Vylonium: bahas deploy besok` atau obrolan bebas.
 
 ## Web utama Clincoo (GitHub + Cloudflare)
 

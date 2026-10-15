@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus, resolveName, NAME_PATTERN } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     const P = persona(c);
@@ -28,9 +28,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
 
     // ===== KERJAAAN NYATA: GitHub =====
-    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
+    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
     if (gi) {
-      const who = (gi[1] || c).toLowerCase();
+      const who = resolveName(gi[1] || c);
       const title = gi[2].trim().slice(0, 300);
       const P = persona(who);
       const body = (await aiChatRetry(env, who, `Kamu ${P.name}, ${P.role} di Clincoo. CEO minta kamu bikin issue GitHub berjudul: "${title}". Tulis body issue dalam Markdown GitHub: deskripsi singkat masalah/tugas (2-4 baris), checklist langkah kerja pakai '- [ ]', dan kriteria selesai. Langsung isi, tanpa kalimat pembuka.`)) ||
@@ -58,9 +58,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
       await tgSend(token, chatId, `📋 <b>${kind === 'pr' ? 'PR terbuka' : 'Issue terbuka'}:</b>\n${lines}`);
       return Response.json({ ok: true });
     }
-    const gr = text.match(/^(?:suruh(?:in)?\s+)?(rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
+    const gr = text.match(/^(?:suruh(?:in)?\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
     if (gr) {
-      const who = (gr[1] || c).toLowerCase();
+      const who = resolveName(gr[1] || c);
       const n = Number(gr[2]);
       const pr = await ghGetPR(env, n);
       if (!pr) { await tgSend(token, chatId, `PR #${n} gak ketemu di repo 😅`); return Response.json({ ok: true }); }
@@ -161,8 +161,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // ===== PERINTAH: meeting/rapat nyata =====
     if (/rapat|meet(?:ing|in|t)|meating|metting/i.test(text) && text.length <= 140 && !text.includes('?')) {
       const uniq = [];
-      for (const n of (text.toLowerCase().match(/\b(rafa|dimas|sari|bagas)\b/g) || []))
+      for (const n0 of (text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/g) || [])) {
+        const n = resolveName(n0);
         if (!uniq.includes(n)) uniq.push(n);
+      }
       let a = uniq[0] || c;               // tanpa nama: bot ini yang rapat
       let b = uniq[1] || (a !== c ? c : ['rafa','dimas','sari','bagas'].filter(x => x !== a)[Math.floor(Math.random() * 3)]);
       const tm = text.match(/(?:soal|tentang|ttg|about)\s+(.+)$/i);
@@ -192,9 +194,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // ===== PERINTAH: panggil/suruh <nama> [ke <tempat>] =====
-    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(rafa|dimas|sari|bagas)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
+    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
     if (cmd) {
-      const target = cmd[1].toLowerCase();
+      const target = resolveName(cmd[1]);
       let place = cmd[2] ? (PLACE_WORDS[cmd[2].toLowerCase()] || null) : 'kantor';
       if (!place) place = 'kantor';
       const T = persona(target);
@@ -224,14 +226,14 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     if (text.startsWith('/start')) {
-      await tgSend(token, chatId, `Halo! Aku ${P.name}, ${P.role} di Clincoo Office 🏢\n\nNgobrol langsung aja denganku di sini, atau suruh aku ngobrol dengan rekan kerja:\n<code>ke Dimas: bahas deploy besok</code>\n\nRuang kantor kami: vylonium.biz.id`);
+      await tgSend(token, chatId, `Halo! Aku ${P.name}, ${P.role} di Clincoo Office 🏢\n\nNgobrol langsung aja denganku di sini, atau suruh aku ngobrol dengan rekan kerja:\n<code>ke Vylonium: bahas deploy besok</code>\n\nRuang kantor kami: vylonium.biz.id`);
       return Response.json({ ok: true });
     }
 
     // pola ajak rekan: "ke <nama> [:] <topik>" / "@<nama> <topik>"
-    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(rafa|dimas|sari|bagas)\b[\s:,-]*(.*)$/i) || text.match(/^@(rafa|dimas|sari|bagas)\s+(.*)$/i);
-    if (m && m[1].toLowerCase() !== c) {
-      const target = m[1].toLowerCase();
+    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b[\s:,-]*(.*)$/i) || text.match(/^@(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\s+(.*)$/i);
+    if (m && resolveName(m[1]) !== c) {
+      const target = resolveName(m[1]);
       const topic = (m[2] || 'pekerjaan hari ini').trim();
       const T = persona(target);
       await tgSend(token, chatId, `Siap! Aku ajak ${T.name} ngobrol soal: <i>${topic}</i>. Lihat kami di papan nama → vylonium.biz.id 🏢`);
