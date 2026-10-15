@@ -12,3 +12,11 @@ karakter membesar dan pesannya muncul bertahap seperti sedang mengetik.
   - `POST /api/simulate` — pemicu dialog (header `X-Admin-Key`), body `{from,to,topic}`
 
 Format suruhan lewat Telegram: `ke Dimas: bahas deploy besok` atau obrolan bebas.
+
+## Web utama Clincoo (GitHub + Cloudflare)
+
+- `update web clincoo ganti <teks lama> jadi <teks baru>` — ubah teks web utama
+  (repo muzawwied/Clincoo, commit ke main, deploy otomatis Actions+Cloudflare)
+- `update web clincoo file <path> ganti <teks lama> jadi <teks baru>` — idem, file spesifik
+- `deploy clincoo` — terbitkan deploy baru project Pages `clincoo`
+- `status clincoo` — status deploy terakhir web utama

@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     const P = persona(c);
@@ -119,6 +119,42 @@ export async function onRequestPost({ request, env, waitUntil }) {
       await tgSend(token, chatId, st
         ? `📊 Status web:<b> ${st.status}</b> (${st.stage || '-'})\nDomain: ${dl}\nDeploy terakhir: ${new Date(st.created).toLocaleString('id-ID')}`
         : 'Gak bisa ngambil status 😢 cek token Cloudflare.');
+      return Response.json({ ok: true });
+    }
+
+    // ===== [15 Okt] WEB CLINCOO UTAMA (GitHub muzawwied/Clincoo + Cloudflare Pages 'clincoo') =====
+    const cw = text.match(/^update\s+web\s+clincoo\s+(?:file\s+([\w\-./]+)\s+)?(?:ganti|ubah)\s+(.+?)\s+(?:jadi|menjadi|dengan)\s+(.+)$/i)
+           || text.match(/^(?:suruh\s+\w+\s+)?update\s+clincoo\s+(?:ganti|ubah)\s+(.+?)\s+(?:jadi|menjadi|dengan)\s+(.+)$/i);
+    if (cw) {
+      const filePath = cw[3] ? (cw[1] || undefined) : undefined; // regex 1 punya grup file
+      const oldT = cw[3] ? cw[2] : cw[1];
+      const newT = cw[3] ? cw[3] : cw[2];
+      const r = await clincooFindReplace(env, oldT, newT, filePath);
+      if (r.ok) {
+        await tgSend(token, chatId, `✅ Web <b>Clincoo</b> benar-benar diubah & ter-commit <code>${r.commit}</code> di ${r.file} (repo muzawwied/Clincoo) — push ke main otomatis dideploy Actions+Cloudflare. Sebentar lagi live di app.clincoo.buzz 🔥`);
+        const report = await aiChatRetry(env, c, `Kamu baru saja mengubah teks web utama Clincoo (app.clincoo.buzz) dan commit ke GitHub (${r.commit}); deploy berjalan otomatis lewat GitHub Actions + Cloudflare Pages. Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.`);
+        if (report) { await logMsg(env, c, 'user', report); await setStatus(env, c, 'bicara'); }
+      } else {
+        await tgSend(token, chatId, `Gagal update web Clincoo: ${r.error}`);
+      }
+      return Response.json({ ok: true });
+    }
+    const cd = text.match(/^(?:deploy|terbitkan)(?:\s+ulang)?\s+(?:web\s+|situs\s+|website\s+)?clincoo\s*$/i);
+    if (cd) {
+      const ok = await clincooDeploy(env);
+      await tgSend(token, chatId, ok ? '✅ Deploy baru udah diterbitkan ke Cloudflare Pages project <b>clincoo</b> (web utama) — sebentar lagi live di app.clincoo.buzz.' : 'Gagal trigger deploy web Clincoo 😢 cek token Cloudflare di Pages settings.');
+      if (ok) {
+        const report = await aiChatRetry(env, c, 'Kamu baru saja menerbitkan deploy baru web utama Clincoo (app.clincoo.buzz) ke Cloudflare Pages. Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.');
+        if (report) { await logMsg(env, c, 'user', report); await setStatus(env, c, 'bicara'); }
+      }
+      return Response.json({ ok: true });
+    }
+    const cs = text.match(/^(?:status|cek)(?:\s+web|\s+deploy|\s+situs|\s+website)?\s+clincoo\s*$/i);
+    if (cs) {
+      const st = await clincooStatus(env);
+      await tgSend(token, chatId, st
+        ? `📊 Status web <b>Clincoo</b> (project clincoo): <b>${st.status}</b> (${st.stage || '-'})\nDeploy terakhir: ${new Date(st.created).toLocaleString('id-ID')}${st.url ? '\nURL: ' + st.url : ''}`
+        : 'Gak bisa ngambil status web Clincoo 😢 cek token Cloudflare.');
       return Response.json({ ok: true });
     }
 

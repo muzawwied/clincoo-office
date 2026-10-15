@@ -36,7 +36,7 @@ export async function onRequestGet({ request, env }) {
   const settings = {};
   for (const k of settingKeys) {
     const dbV = await getSetting(env, k);
-    const envV = k.includes('gemini') ? (k === 'gemini_model' ? 'gemini-2.0-flash' : env.GEMINI_API_KEY) : (k === 'openrouter_model' ? 'cohere/north-mini-code:free' : env.OPENROUTER_API_KEY);
+    const envV = k.includes('gemini') ? (k === 'gemini_model' ? 'gemini-3.6-flash' : env.GEMINI_API_KEY) : (k === 'openrouter_model' ? 'cohere/north-mini-code:free' : env.OPENROUTER_API_KEY);
     settings[k] = { set: !!dbV, hint: dbV ? '••••' + String(dbV).slice(-4) : null, default_hint: envV ? 'env: ••••' + String(envV).slice(-4) : 'env: belum ada', is_model: k.includes('model') };
   }
   return Response.json({ ok: true, bots, settings });

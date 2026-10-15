@@ -6,7 +6,7 @@ export async function onRequestGet({ request, env }) {
   const out = { ok: true, env_keys: Object.keys(env).sort() };
   // kesehatan Gemini: status HTTP + pesan error singkat (tanpa kunci)
   if (env.GEMINI_API_KEY) {
-    const model = 'gemini-flash-latest';
+    const model = 'gemini-3.6-flash';
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + env.GEMINI_API_KEY, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(9000),

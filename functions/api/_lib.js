@@ -73,11 +73,14 @@ export async function getBoard(env, since) {
   return { msgs: msgs.results || [], status: out };
 }
 
+// [15 Okt] Model utama Gemini 3.6 Flash (permintaan CEO) dengan cascade model
+// aktif: kalau model utama ditolak (429/404/dst), otomatis coba model berikutnya.
+const GEMINI_MODEL_CASCADE = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3-flash-preview'];
 async function geminiChat(env, sys, user, charId) {
   const key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
-  const mMain = (charId && await getSetting(env, 'model_' + charId)) || (await getSetting(env, 'gemini_model')) || 'gemini-3-flash-preview';
-  const models = [mMain, 'gemini-flash-latest'];
+  const mMain = (charId && await getSetting(env, 'model_' + charId)) || (await getSetting(env, 'gemini_model')) || GEMINI_MODEL_CASCADE[0];
+  const models = [mMain, ...GEMINI_MODEL_CASCADE.filter((m) => m !== mMain)];
   for (const model of models) {
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
@@ -85,11 +88,11 @@ async function geminiChat(env, sys, user, charId) {
         body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
           generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
       });
-      if (!r.ok) { if (r.status === 429) continue; break; } // 429: coba model lite
+      if (!r.ok) continue; // model ditolak/sibuk -> coba model cascade berikutnya
       const j = await r.json();
       const t = (((j.candidates || [])[0] || {}).content || {}).parts;
       if (t && t[0] && t[0].text) return String(t[0].text).trim().replace(/^["']|["']$/g, '');
-      break;
+      continue;
     } catch (e) {}
   }
   return null;
@@ -321,6 +324,8 @@ async function meetingStep(env, d, step) {
 // ===== INTEGRASI GITHUB: kerjaan nyata =====
 const GH_LABELS = { rafa: ['frontend'], dimas: ['backend'], sari: ['design', 'ui'], bagas: ['devops'] };
 function ghRepo(env) { return env.GITHUB_REPO || 'muzawwied/clincoo-office'; }
+// [15 Okt] repo web Clincoo UTAMA (app.clincoo.buzz) — target perintah "update web clincoo".
+function clincooRepo(env) { return env.CLINCOO_REPO || 'muzawwied/Clincoo'; }
 async function gh(env, method, path, body) {
   const tok = env.GITHUB_TOKEN;
   if (!tok) return null;
@@ -334,8 +339,8 @@ async function gh(env, method, path, body) {
     return method === 'GET' || method === 'POST' ? await r.json().catch(() => null) : true;
   } catch (e) { return null; }
 }
-export async function ghCreateIssue(env, charId, title, body) {
-  const j = await gh(env, 'POST', '/repos/' + ghRepo(env) + '/issues', {
+export async function ghCreateIssue(env, charId, title, body, repo) {
+  const j = await gh(env, 'POST', '/repos/' + (repo || ghRepo(env)) + '/issues', {
     title, body, labels: GH_LABELS[charId] || []
   });
   return j && j.number ? { number: j.number, url: j.html_url } : null;
@@ -366,17 +371,17 @@ export async function ghList(env, kind) {
 // ===== KONTROL NYATA: file web (GitHub) + deploy (Cloudflare) =====
 // PAGAR ANTI-MERUSAK: hanya file ini yang boleh diedit karakter, teks maks 300 karakter.
 const SAFE_EDIT_FILES = ['index.html', 'office-live.js'];
-async function ghGetFile(env, path) {
-  const j = await gh(env, 'GET', '/repos/' + ghRepo(env) + '/contents/' + encodeURIComponent(path) + '?ref=main');
+async function ghGetFile(env, path, repo) {
+  const j = await gh(env, 'GET', '/repos/' + (repo || ghRepo(env)) + '/contents/' + encodeURIComponent(path) + '?ref=main');
   if (!j || !j.content) return null;
   const bin = Uint8Array.from(atob(j.content.replace(/\n/g, '')), (ch) => ch.charCodeAt(0));
   return { sha: j.sha, text: new TextDecoder().decode(bin) };
 }
-async function ghPutFile(env, path, text, message, sha) {
+async function ghPutFile(env, path, text, message, sha, repo) {
   const bytes = new TextEncoder().encode(text);
   let b64 = '';
   for (let i = 0; i < bytes.length; i += 0x8000) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  const j = await gh(env, 'PUT', '/repos/' + ghRepo(env) + '/contents/' + encodeURIComponent(path), {
+  const j = await gh(env, 'PUT', '/repos/' + (repo || ghRepo(env)) + '/contents/' + encodeURIComponent(path), {
     message, content: btoa(b64), branch: 'main', sha
   });
   return j && j.commit ? { sha: j.commit.sha, url: (j.content && j.content.html_url) || null } : null;
@@ -399,11 +404,11 @@ export async function webFindReplace(env, oldText, newText) {
   }
   return { ok: false, error: 'teks lama gak ketemu di file web (index.html / office-live.js)' };
 }
-async function cf(env, method, path, body) {
+async function cf(env, method, path, body, project) {
   const tok = env.CLOUDFLARE_API_TOKEN, acc = env.CLOUDFLARE_ACCOUNT_ID;
   if (!tok || !acc) return null;
   try {
-    const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects/clincoo-office' + path, {
+    const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects/' + (project || 'clincoo-office') + path, {
       method, headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000)
     });
@@ -425,4 +430,52 @@ export async function cfDomains(env) {
   const j = await cf(env, 'GET', '/domains');
   if (!j || !j.success) return [];
   return (j.result || []).map((x) => ({ name: x.name, status: x.status }));
+}
+
+// ===== [15 Okt] KONTROL WEB CLINCOO UTAMA (app.clincoo.buzz) =====
+// Karakter kini bisa mengubah web Clincoo utama lewat GitHub (commit ke repo
+// muzawwied/Clincoo — push ke main otomatis dideploy oleh Actions + Cloudflare)
+// dan mengawasi/trigger deploy project Pages 'clincoo'.
+const CLINCOO_PAGES_PROJECT = () => 'clincoo'; // env-less const biar eksplisit
+function clincooProject(env) { return env.CLINCOO_PAGES_PROJECT || 'clincoo'; }
+// pagar anti-merusak utk web utama: hanya file ini yang boleh diedit karakter
+const CLINCOO_SAFE_EDIT_FILES = ['index.html'];
+export function isClincooSafePath(p) {
+  if (!p) return null;
+  p = String(p).trim().replace(/^\/+/, '');
+  if (p.includes('..') || p.length > 80) return null;
+  if (!/\.(html?|css|js|json|txt|md)$/i.test(p)) return null;
+  return p;
+}
+// ubah teks web Clincoo UTAMA: cari di file aman (atau path eksplisit), commit;
+// deploy otomatis via GitHub Actions pada push ke main.
+export async function clincooFindReplace(env, oldText, newText, filePath) {
+  oldText = String(oldText || '').trim(); newText = String(newText || '').trim();
+  if (!oldText || oldText.length > 300 || newText.length > 300) return { ok: false, error: 'teks terlalu panjang (maks 300 karakter)' };
+  const repo = clincooRepo(env);
+  const files = filePath ? [isClincooSafePath(filePath)].filter(Boolean) : CLINCOO_SAFE_EDIT_FILES;
+  if (filePath && !files.length) return { ok: false, error: 'path file tidak diizinkan (html/css/js/json/txt, tanpa ..)' };
+  for (const f of files) {
+    const file = await ghGetFile(env, f, repo);
+    if (!file) continue;
+    const i = file.text.indexOf(oldText);
+    if (i >= 0) {
+      const out = file.text.slice(0, i) + newText + file.text.slice(i + oldText.length);
+      const cm = await ghPutFile(env, f, out, '[clincoo-bot] ubah teks web Clincoo: "' + oldText.slice(0, 60) + '" -> "' + newText.slice(0, 60) + '"', file.sha, repo);
+      if (!cm) return { ok: false, error: 'gagal commit ke GitHub (cek izin token utk repo ' + repo + ')' };
+      return { ok: true, file: f, commit: cm.sha.slice(0, 9), deployed: true, note: 'push ke main -> deploy otomatis via Actions/Cloudflare' };
+    }
+  }
+  return { ok: false, error: 'teks lama gak ketemu di file web Clincoo (' + files.join(', ') + ')' };
+}
+export async function clincooDeploy(env) {
+  const j = await cf(env, 'POST', '/deployments', { branch: 'main' }, clincooProject(env));
+  return !!(j && j.success);
+}
+export async function clincooStatus(env) {
+  const j = await cf(env, 'GET', '/deployments?per_page=1', null, clincooProject(env));
+  if (!j || !j.success || !j.result || !j.result.length) return null;
+  const d = j.result[0];
+  const stg = d.latest_stage || {};
+  return { status: stg.status, stage: stg.name, created: d.created_on, url: (d.urls && d.urls[0]) || null };
 }
