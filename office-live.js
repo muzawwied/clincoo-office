@@ -153,10 +153,11 @@
   }
 
   // duduk di kursi ruang meeting: pakai POI engine supaya animasi duduk asli
-  async function sitAtMeeting(c, timeoutMs) {
+  async function sitAtMeeting(c, timeoutMs, isCeo) {
     const w = world(); if (!w || !w.POIS) return false;
     const taken = (p) => w.CHARS.some((x) => x !== c && (x.poi === p || x.lastPoi === p && x.st !== 'WAIT'));
-    const cand = w.POIS.filter((p) => p.act === 'METING' && p.floor === 0 && !taken(p))
+    // CEO: hanya kursi ujung meja (head). Karyawan: dilarang kursi ujung.
+    const cand = w.POIS.filter((p) => p.act === 'METING' && p.floor === 0 && !taken(p) && (!!p.head === !!isCeo))
       .sort((a, b) => (Math.hypot(a.sx + 11.5, a.sz + 14.6)) - (Math.hypot(b.sx + 11.5, b.sz + 14.6)));
     for (const p of cand.slice(0, 3)) {
       const longTrip = c.pFloor !== 0; // dari lantai lain: kasih waktu lewat tangga
@@ -175,6 +176,24 @@
       if ((c.st === 'ACT' || c.st === 'SITIN') && c.poi === p) return true;
     }
     return false;
+  }
+
+  // duduk di POI tertentu (dipakai kursi kerja CEO): jalan ke kursi lalu duduk via engine POI
+  async function sitAtPoi(c, p, timeoutMs) {
+    const longTrip = c.pFloor !== (p.floor || 0);
+    interruptAct(c);
+    const t0 = Date.now();
+    while (Date.now() - t0 < 9000 && (c.st === 'SITOUT' || c.st === 'SITIN' || c.st === 'ACT')) await sleep(400);
+    const pts = routeFor(c, { floor: p.floor, ax: p.ax, az: p.az });
+    if (!pts) return false;
+    c.poi = p; c.path = pts; c.st = 'WALK'; c.stT = 0; c.pendingAct = null; c.ghostT = 0;
+    const t1 = Date.now(); const budget = longTrip ? timeoutMs * 2.5 : timeoutMs;
+    while (Date.now() - t1 < budget) {
+      if ((c.st === 'ACT' || c.st === 'SITIN') && c.poi === p) return true;
+      if (c.st !== 'WALK' && c.poi !== p) break;
+      await sleep(400);
+    }
+    return (c.st === 'ACT' || c.st === 'SITIN') && c.poi === p;
   }
 
   function faceTo(c, target) {
@@ -216,8 +235,9 @@
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
-      if (m.place === 'meeting') { // RAPAT: duduk di kursi ruang meeting
-        const ok = await sitAtMeeting(A, 20000);
+      if (m.place === 'meeting') { // RAPAT: CEO duduk di ujung meja, karyawan di sisi
+        const isCeo = m.from_c === 'user';
+        const ok = await sitAtMeeting(A, 20000, isCeo);
         if (!ok) { // fallback: berdiri tersebar mengelilingi meja (bukan numpuk 1 titik)
           const idx = Math.max(0, W.CHARS.indexOf(A));
           const ang = (idx / Math.max(1, W.CHARS.length)) * Math.PI * 2;
@@ -228,6 +248,17 @@
         if (m.text) addFeed(m);
         if (m.kind === 'goto' && m.text) await speak(A, m.text);
         A.waitDur = Math.max(savedWait, 240);
+        return;
+      }
+      if (m.place === 'kantor' && m.from_c === 'user') { // CEO di kantornya: duduk di kursi kerja CEO
+        const w = world();
+        const ceoChair = w && w.POIS ? w.POIS.filter((p) => p.act === 'TYPE' && p.floor === 0)
+          .sort((a, b) => (Math.hypot(a.sx + 22.5, a.sz + 16.6)) - (Math.hypot(b.sx + 22.5, b.sz + 16.6)))[0] : null;
+        if (ceoChair) { await sitAtPoi(A, ceoChair, 20000); }
+        if (!ceoChair) await walkToPoint(A, PLACES.kantor, 20000);
+        if (m.text) addFeed(m);
+        if (m.kind === 'goto' && m.text) { await speak(A, m.text); A.yawNow = 0; }
+        A.waitDur = Math.max(savedWait, 40);
         return;
       }
       const place = PLACES[m.place] || DESK[A.idx];
