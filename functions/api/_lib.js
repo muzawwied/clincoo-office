@@ -76,8 +76,8 @@ export async function getBoard(env, since) {
 async function geminiChat(env, sys, user) {
   const key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
-  const mMain = (await getSetting(env, 'gemini_model')) || 'gemini-2.0-flash';
-  const models = [mMain, 'gemini-2.0-flash-lite'];
+  const mMain = (await getSetting(env, 'gemini_model')) || 'gemini-3-flash-preview';
+  const models = [mMain, 'gemini-flash-latest'];
   for (const model of models) {
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
