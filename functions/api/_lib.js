@@ -522,6 +522,47 @@ export async function clincooFindReplace(env, oldText, newText, filePath) {
   }
   return { ok: false, error: 'teks lama gak ketemu di file web Clincoo (' + files.join(', ') + ')' };
 }
+
+// ===== BACA NYATA: repo Clincoo (GitHub) + project Cloudflare =====
+// Dipakai agar karakter menjawab dari DATA ASLI, bukan mengarang.
+const READ_TEXT_EXT = /\.(html|css|js|mjs|json|md|txt|sql|toml|yml|yaml|xml)$/i;
+export async function clincooRepoInfo(env) {
+  const repo = clincooRepo(env);
+  const info = await gh(env, 'GET', '/repos/' + repo);
+  if (!info) return null;
+  const commits = (await gh(env, 'GET', '/repos/' + repo + '/commits?per_page=5')) || [];
+  const issues = (await gh(env, 'GET', '/repos/' + repo + '/issues?state=open&per_page=10')) || [];
+  const tree = await gh(env, 'GET', '/repos/' + repo + '/git/trees/main');
+  return {
+    repo, desc: info.description || '', branch: info.default_branch, pushed: info.pushed_at, private: info.private,
+    commits: commits.map((c) => ({ sha: c.sha.slice(0, 7), msg: String((c.commit && c.commit.message) || '').split('\n')[0].slice(0, 100), date: c.commit && c.commit.author && c.commit.author.date })),
+    issues: issues.filter((i) => !i.pull_request).map((i) => ({ n: i.number, title: String(i.title).slice(0, 90) })),
+    prs: issues.filter((i) => i.pull_request).map((i) => ({ n: i.number, title: String(i.title).slice(0, 90) })),
+    top: ((tree && tree.tree) || []).map((t) => (t.type === 'tree' ? t.path + '/' : t.path))
+  };
+}
+export async function clincooReadPath(env, path) {
+  const repo = clincooRepo(env);
+  path = String(path || '').replace(/^\/+/, '');
+  if (!path || path.includes('..')) return null;
+  const j = await gh(env, 'GET', '/repos/' + repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/') + '?ref=main');
+  if (!j) return null;
+  if (Array.isArray(j)) return { kind: 'dir', path, items: j.map((x) => (x.type === 'dir' ? x.name + '/' : x.name + ' (' + x.size + 'B)')) };
+  if (!READ_TEXT_EXT.test(path)) return { kind: 'bin', path, size: j.size };
+  const f = await ghGetFile(env, path, repo);
+  return f ? { kind: 'file', path, size: j.size, text: f.text } : { kind: 'big', path, size: j.size };
+}
+export async function cfProjects(env) {
+  const acc = env.CLOUDFLARE_ACCOUNT_ID, tok = env.CLOUDFLARE_API_TOKEN;
+  if (!acc || !tok) return null;
+  try {
+    const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects', { headers: { Authorization: 'Bearer ' + tok }, signal: AbortSignal.timeout(12000) });
+    const j = await r.json();
+    if (!j.success) return null;
+    return (j.result || []).map((p) => ({ name: p.name, domains: (p.domains || []).filter((d) => !d.endsWith('.pages.dev')).slice(0, 2), last: p.latest_deployment && p.latest_deployment.latest_stage ? p.latest_deployment.latest_stage.status : '?' }));
+  } catch (e) { return null; }
+}
+
 export async function clincooDeploy(env) {
   const j = await cf(env, 'POST', '/deployments', { branch: 'main' }, clincooProject(env));
   return !!(j && j.success);

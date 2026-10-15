@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus, resolveName, NAME_PATTERN } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus, resolveName, NAME_PATTERN, clincooRepoInfo, clincooReadPath, cfProjects } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     const P = persona(c);
@@ -26,6 +26,54 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
+
+    // ===== SATU PENJAWAB DI GRUP =====
+    // Di grup ada 4 bot yang menerima pesan yang sama. Yang menjawab: bot yang disebut namanya;
+    // kalau tidak ada nama, hanya Muzawwied (CEO). Bot lain diam supaya tidak 4x jawaban sama.
+    const isGroup = msg.chat && (msg.chat.type === 'group' || msg.chat.type === 'supergroup');
+    const mentioned = [...new Set((text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/g) || []).map(resolveName))];
+    const isCmdForOther = /^(?:ke|kepada|ajak|dengan|sama|suruh(?:in)?|panggil(?:in)?|tolong\s+panggil)\s+(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/i.test(text) || /^@(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\s/i.test(text);
+    if (isGroup && text && !text.startsWith('/') && !isCmdForOther) {
+      const responder = mentioned.length ? mentioned[0] : 'rafa';
+      if (responder !== c) return Response.json({ ok: true });
+    }
+
+    // ===== BACA NYATA: repo Clincoo, file, deploy, Cloudflare =====
+    // "list repo", "cek github", "status web", "lihat file X", "buka file X", "cek cloudflare"
+    const wantFile = text.match(/^(?:buka|baca|lihat|isi|cek)\s+(?:file|isi)\s+([\w\-./]+)/i);
+    const wantRepo = /^(?:list|daftar|lihat|cek|show|status)\s+(?:repo|repositori|repository|github|git|kode|code|web|situs|website)(?:\s+clincoo)?\s*\??$/i.test(text) || /\b(?:cek|periksa|lihat)\s+(?:repo|github)\b/i.test(text);
+    const wantCf = /^(?:list|daftar|lihat|cek|show|status)\s+(?:cloudflare|pages|project|proyek|deploy)\b/i.test(text);
+    if (wantFile || wantRepo || wantCf) {
+      await setStatus(env, c, 'mengetik');
+      let facts = '';
+      if (wantFile) {
+        const f = await clincooReadPath(env, wantFile[1]);
+        if (!f) facts = `Gagal membaca "${wantFile[1]}" dari repo muzawwied/Clincoo (tidak ada atau token tidak punya akses).`;
+        else if (f.kind === 'dir') facts = `Isi folder ${f.path}/ di repo Clincoo (${f.items.length} item):\n` + f.items.slice(0, 80).join('\n');
+        else if (f.kind === 'file') facts = `File ${f.path} (${f.size} byte) di repo Clincoo. Cuplikan awal:\n` + f.text.slice(0, 1800);
+        else facts = `File ${f.path} (${f.size} byte) bukan teks / terlalu besar untuk ditampilkan.`;
+      } else if (wantCf) {
+        const pj = await cfProjects(env);
+        facts = pj ? 'Project Cloudflare Pages (nyata dari API):\n' + pj.map((p) => `- ${p.name}${p.domains.length ? ' [' + p.domains.join(', ') + ']' : ''} · deploy terakhir: ${p.last}`).join('\n') : 'Gagal mengambil daftar project Cloudflare (cek CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID di Pages settings).';
+      } else {
+        const [ri, st] = await Promise.all([clincooRepoInfo(env), clincooStatus(env).catch(() => null)]);
+        if (!ri) facts = 'Gagal membaca repo muzawwied/Clincoo (cek GITHUB_TOKEN di Pages settings).';
+        else {
+          facts = `Repo ${ri.repo} (${ri.private ? 'privat' : 'publik'}), branch ${ri.branch}, push terakhir ${ri.pushed}.\n` +
+            `Isi root: ${ri.top.slice(0, 45).join(', ')}\n` +
+            `Commit terbaru:\n` + ri.commits.map((x) => `- ${x.sha} ${x.msg}`).join('\n') + '\n' +
+            `Issue terbuka: ${ri.issues.length ? ri.issues.map((i) => '#' + i.n + ' ' + i.title).join('; ') : 'tidak ada'}\n` +
+            `PR terbuka: ${ri.prs.length ? ri.prs.map((i) => '#' + i.n + ' ' + i.title).join('; ') : 'tidak ada'}\n` +
+            `Deploy Cloudflare terakhir: ${st ? st.status + ' (' + st.stage + ', ' + st.created + ')' : 'tidak terbaca'}`;
+        }
+      }
+      // data NYATA ditampilkan utuh; AI hanya memberi komentar singkat atas data itu (tanpa mengarang)
+      await tgSend(token, chatId, `<b>${P.name}</b> cek langsung ke sumbernya:\n<pre>${facts.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+      const note = await aiChatRetry(env, c, `Kamu ${P.name}, ${P.role}. CEO minta: "${text}". Ini DATA NYATA hasil pengecekan (jangan menambah fakta di luar ini):\n${facts.slice(0, 2500)}\n\nKomentari singkat (1-3 kalimat, santai) apa yang kamu lihat dan beri saran langkah berikutnya jika ada. Jangan mengulang seluruh data.`);
+      if (note) { await logMsg(env, c, 'user', note); await tgSend(token, chatId, note); }
+      await setStatus(env, c, 'idle');
+      return Response.json({ ok: true });
+    }
 
     // ===== KERJAAAN NYATA: GitHub =====
     const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
@@ -48,7 +96,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       }
       return Response.json({ ok: true });
     }
-    const gl = text.match(/^(?:daftar|list|lihat|cek|show)\s+(issue|issues|tiket|pr|pull|pr\\s|repo)/i) || text.match(/^(?:ada|open)\s+(?:issue|pr)\s*\?*$/i);
+    const gl = text.match(/^(?:daftar|list|lihat|cek|show)\s+(issue|issues|tiket|pr|pull)\b/i) || text.match(/^(?:ada|open)\s+(?:issue|pr)\s*\?*$/i);
     if (gl) {
       const kind = /pr|pull/.test(text) ? 'pr' : 'issue';
       const items = await ghList(env, kind);
