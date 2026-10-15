@@ -46,19 +46,22 @@ export async function getBoard(env, since) {
 async function geminiChat(env, sys, user) {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
-  const models = ['gemini-2.0-flash'];
+  const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
   for (const model of models) {
-    try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
-        body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
-      });
-      if (!r.ok) continue;
-      const j = await r.json();
-      const t = (((j.candidates || [])[0] || {}).content || {}).parts;
-      if (t && t[0] && t[0].text) return String(t[0].text).trim().replace(/^["']|["']$/g, '');
-    } catch (e) {}
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
+            generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
+        });
+        if (!r.ok) { if (r.status === 429 || r.status >= 500) { await sleep(1500); continue; } break; }
+        const j = await r.json();
+        const t = (((j.candidates || [])[0] || {}).content || {}).parts;
+        if (t && t[0] && t[0].text) return String(t[0].text).trim().replace(/^["']|["']$/g, '');
+        break;
+      } catch (e) { await sleep(1200); }
+    }
   }
   return null;
 }
@@ -100,6 +103,16 @@ export async function tgSend(token, chatId, text) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Retry utk obrolan langsung dengan CEO — jawaban boleh pendek.
+export async function aiChatRetry(env, charId, prompt) {
+  for (let i = 0; i < 3; i++) {
+    try { const t = await aiSay(env, charId, prompt); if (t && t.length >= 4) return t; }
+    catch (e) {}
+    await sleep(4000);
+  }
+  return null;
+}
 
 // Dialog 3 giliran antar karakter; tiap baris ditulis ke papan + dikirim ke Telegram user.
 export async function aiSayRetry(env, charId, prompt) {
