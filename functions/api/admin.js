@@ -90,8 +90,10 @@ export async function onRequestPost({ request, env }) {
   if (act === 'test_ai') {
     const { ensurePersonas } = await import('./_lib.js');
     await ensurePersonas(env);
-    const r = await aiChatRetry(env, 'rafa', 'Sapa CEO satu kalimat singkat, bilang kamu online.');
-    return Response.json({ ok: !!r, reply: r || null, error: r ? null : 'AI tidak merespons (cek key/model atau rate limit)' });
+    const { persona, resolveName } = await import('./_lib.js');
+    const cid = persona(body.char) ? resolveName(body.char) : 'rafa';
+    const r = await aiChatRetry(env, cid, 'Sapa CEO satu kalimat singkat, sebut namamu dan perannya, bilang kamu online.');
+    return Response.json({ ok: !!r, char: cid, name: persona(cid).name, reply: r || null, error: r ? null : 'AI tidak merespons (cek key/model atau rate limit)' });
   }
   if (act === 'set_webhook') {
     const id = String(body.id || '').toLowerCase();
