@@ -234,17 +234,18 @@
     try {
       const r = await fetch('/api/board?since=' + lastId, { cache: 'no-store' });
       const j = await r.json();
-      if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); feedBtn.classList.add('ol-new'); return; }
+      if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); return; }
       feedBtn.title = 'Riwayat obrolan';
-      if (!feed.classList.contains('on')) feedBtn.classList.add('ol-new');
       statusNow = j.status || {}; applyStatus();
+      let fresh = 0;
       for (const m of (j.msgs || [])) {
         if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
         const isNew = loaded;
         lastId = Math.max(lastId, m.id);
-        if (!isNew) { addFeed(m); continue; }
-        queue.push(m);
+        if (!isNew) { addFeed(m); continue; } // riwayat lama saat sync awal: tanpa titik merah
+        fresh++; queue.push(m);
       }
+      if (fresh > 0 && !feed.classList.contains('on')) feedBtn.classList.add('ol-new');
       loaded = true;
       if (!playing && queue.length) drain();
     } catch (e) { feedBtn.title = 'poll: ' + (e && e.message ? e.message : e); feedBtn.classList.add('ol-new'); }
