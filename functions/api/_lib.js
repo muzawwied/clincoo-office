@@ -255,17 +255,21 @@ async function meetingStep(env, d, step) {
     const P = persona(other);
     await setStatus(env, who, 'mengetik');
     let line = await aiSay(env, who, `Kamu lagi meeting sama ${P.name} (${P.role}) soal "${topic}", CEO nyimak dari deket. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
-    if (line && line.length >= 8) {
-      d.last = line;
-      await logMsg(env, who, other, line);
-      await setStatus(env, who, 'bicara');
+    if (!line || line.length < 8) {
+      const FL = ['Setuju nih. Kita jalanin dulu pelan-pelan aja, nanti dievaluasi lagi ya.', 'Btw aku rasa kita perlu data lebih banyak dulu, jangan buru-buru.', 'Hmm masuk akal juga tuh. Kalau gitu aku bantu siapin dari sisi aku ya.'];
+      line = FL[Math.floor(Math.random() * FL.length)];
     }
+    d.last = line;
+    await logMsg(env, who, other, line);
+    await setStatus(env, who, 'bicara');
     return true;
   }
   // step 4: penutup + status kembali normal
   await setStatus(env, d.a, 'mengetik');
   let end = await aiSay(env, d.a, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
-  if (end && end.length >= 8) { await logMsg(env, d.a, d.b, end); await setStatus(env, d.a, 'bicara'); }
+  if (!end || end.length < 8) end = 'Oke, gitu aja dulu ya kesimpulannya. Kita balik kerja, lanjut nanti kalau ada update! 👍';
+  await logMsg(env, d.a, d.b, end);
+  await setStatus(env, d.a, 'bicara');
   await sleep(3000);
   await setStatus(env, d.a, 'idle');
   await setStatus(env, d.b, 'idle');
