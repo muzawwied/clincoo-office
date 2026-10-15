@@ -102,7 +102,7 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 </style>
 </head>
 <body>
-<div id="boot"><div class="sp"></div><div id="bootTxt">Memuat kantor 3D…</div><small id="bootSub"></small><button id="bootRetry">Coba lagi</button></div>
+<div id="boot"><div class="sp"></div><div id="bootTxt">Memuat…</div><small id="bootSub"></small><button id="bootRetry">Coba lagi</button></div>
 <div id="toast"></div>
 <script type="text/plain" id="app-src">
 let scene, camera, renderer, controls;
@@ -2712,6 +2712,7 @@ let lastCamSig = '', lastPosSig = [], lastDraw = -1;
 window.__OFFICE_IMPL = {
   get CHARS(){ try { return CHARS; } catch(e) { return []; } },
   get STAIRS(){ try { return STAIRS; } catch(e) { return []; } },
+  get POIS(){ try { return POIS; } catch(e) { return []; } },
   get astar(){ try { return astar; } catch(e) { return null; } },
   get FY(){ try { return FY; } catch(e) { return []; } }
 };
@@ -2787,7 +2788,7 @@ window.__initApp = init;
   }
 
   function start(){
-    boot.classList.remove('err'); txt.textContent = 'Memuat kantor 3D…'; sub.textContent = '';
+    boot.classList.remove('err'); txt.textContent = 'Memuat…'; sub.textContent = '';
     Promise.all(LIBS.map(getLib)).then(function(rs){
       rs.forEach(function(r, i){ run(r.code, LIBS[i]); });
       if(typeof THREE === 'undefined' || !THREE.OrbitControls) throw new Error('Three.js tidak termuat');
@@ -2810,6 +2811,7 @@ window.__initApp = init;
     get ready(){ return !!window.__OFFICE_IMPL; },
     get CHARS(){ return IMPL().CHARS || []; },
     get STAIRS(){ return IMPL().STAIRS || []; },
+    get POIS(){ return IMPL().POIS || []; },
     get astar(){ return IMPL().astar || null; },
     get FY(){ return IMPL().FY || []; }
   };
@@ -2827,6 +2829,6 @@ window.__initApp = init;
 })();
 
 </script>
-<script src="office-live.js?v=20261016a" defer></script>
+<script src="office-live.js?v=20261016b" defer></script>
 </body>
 </html>
