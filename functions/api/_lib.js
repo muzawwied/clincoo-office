@@ -73,10 +73,10 @@ export async function getBoard(env, since) {
   return { msgs: msgs.results || [], status: out };
 }
 
-async function geminiChat(env, sys, user) {
+async function geminiChat(env, sys, user, charId) {
   const key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
-  const mMain = (await getSetting(env, 'gemini_model')) || 'gemini-3-flash-preview';
+  const mMain = (charId && await getSetting(env, 'model_' + charId)) || (await getSetting(env, 'gemini_model')) || 'gemini-3-flash-preview';
   const models = [mMain, 'gemini-flash-latest'];
   for (const model of models) {
     try {
@@ -118,7 +118,7 @@ export async function aiSay(env, charId, userPrompt) {
   const p = persona(charId);
   if (!p) return null;
   const sys = p.sys + ' Saat menyebut pekerjaan/web/deploy, hanya nyatakan yang benar-benar terjadi di papan kantor atau hasil perintahmu; kalau belum dicek bilang belum dicek. Kamu sedang di kantor 3D Clincoo Office. Balasanmu ditampilkan sebagai obrolan singkat di papan nama. Tulis seperti orang beneran ngobrol di kantor: singkat, santai, natural, boleh bahasa gaul. JANGAN formal/kaku, JANGAN pakai kata "siap", JANGAN menyebut bahwa kamu AI.';
-  let t = await geminiChat(env, sys, userPrompt);
+  let t = await geminiChat(env, sys, userPrompt, charId);
   if (!t) t = await openrouterChat(env, sys, userPrompt);
   return t || null;
 }
