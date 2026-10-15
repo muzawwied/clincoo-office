@@ -203,21 +203,23 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
   place = place || 'kantor';
   const label = PLACE_LABEL[place] || place;
   await setStatus(env, summonerId, 'mengetik');
-  let line = await aiSay(env, summonerId, placeOnly
+  let line = await aiSayRetry(env, summonerId, placeOnly
     ? `CEO menyuruhmu menyampaikan ke ${T.name} (${T.role}): "${dia_atau_kamu(T.name)} harus ke ${label} sekarang." Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`
     : `CEO memanggil ${T.name} (${T.role}) ke ${label}. Kamu disuruh menyampaikannya. Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`);
 
-  await logMsg(env, summonerId, targetId, line);
-  await setStatus(env, summonerId, 'bicara');
+  if (line) {
+    await logMsg(env, summonerId, targetId, line);
+    await setStatus(env, summonerId, 'bicara');
+  }
   // avatar CEO ikut bergerak ke tempat tujuan (hadir, tanpa bicara)
-  await logMsg(env, 'user', targetId, '(CEO menemui di ' + label + ')', 'ceogoto', place);
+  await logMsg(env, 'user', targetId, '', 'ceogoto', place);
 
   // beri jeda agar dramaturgi jalan (summoner selesai bicara, target merespons)
   await sleep(3000);
   await setStatus(env, targetId, 'mengetik');
-  let ack = await aiSayRetry(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
-  await logMsg(env, targetId, 'user', ack, 'goto', place);
-  await setStatus(env, targetId, 'bicara');
+  let ack = await aiSayRetry(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line || 'kamu diminta ke ' + label}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
+  await logMsg(env, targetId, 'user', ack || '', 'goto', place);
+  if (ack) await setStatus(env, targetId, 'bicara');
 
   // notifikasi ke chat Telegram milik target (jika ada)
   try {
@@ -269,7 +271,7 @@ async function meetingStep(env, d, step) {
   if (!A || !B) return null;
   const topic = (d.topic || 'evaluasi kerja minggu ini').slice(0, 200);
   if (step === 0) { // KUMPUL: CEO + A + B semua jalan ke ruang meeting, masih diam
-    await logMsg(env, 'user', d.a, '(CEO menuju ruang meeting)', 'ceogoto', 'meeting');
+    await logMsg(env, 'user', d.a, '', 'ceogoto', 'meeting');
     await logMsg(env, d.a, d.b, '', 'goto', 'meeting');
     await logMsg(env, d.b, d.a, '', 'goto', 'meeting');
     await setStatus(env, d.a, 'bicara'); // terlihat 'hadir', nunggu semua nyampe
@@ -280,9 +282,8 @@ async function meetingStep(env, d, step) {
     await setStatus(env, d.a, 'mengetik');
     let l1 = await aiSayRetry(env, d.a, `Kalian tim Clincoo sedang rapat di ruang meeting soal "${topic}" — CEO ada di situ. Tujuan rapat: mencari ide konkret untuk mengembangkan Clincoo. Buka rapatnya natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
     if (l1) { await logMsg(env, d.a, d.b, l1); d.last = l1; }
-    if (!d.last) d.last = `(rapat dimulai soal ${topic})`;
+    if (!d.last) d.last = `rapat dimulai membahas ${topic}`;
     await setStatus(env, d.a, 'bicara');
-    d.last = l1;
     return true;
   }
   if (step === 2) { // B nanggep

@@ -109,6 +109,10 @@ export async function onRequestPost({ request, env }) {
     await tgSend(tok, chat, '✅ Tes koneksi dari Panel Admin — aku online, Boss!');
     return Response.json({ ok: true });
   }
+  if (act === 'clear_board') {
+    await env.DB.prepare('DELETE FROM office_msg').run();
+    return Response.json({ ok: true });
+  }
   return Response.json({ ok: false, error: 'aksi tidak dikenal' });
 }
 

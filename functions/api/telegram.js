@@ -38,8 +38,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const iss = await ghCreateIssue(env, who, title, body);
       if (iss) {
         await tgSend(token, chatId, `✅ <b>${P.name}</b> bikin issue <a href="${iss.url}">#${iss.number}</a> di GitHub:\n<b>${title}</b>`);
-        await logMsg(env, who, 'user', `Boss, issue #${iss.number} udah aku bikin: ${title}`);
-        await setStatus(env, who, 'bicara');
+        const report = await aiChatRetry(env, who, `Kamu baru saja selesai membuat issue GitHub #${iss.number}: "${title}". Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.`);
+        if (report) {
+          await logMsg(env, who, 'user', report);
+          await setStatus(env, who, 'bicara');
+        }
       } else {
         await tgSend(token, chatId, `Hmm, ${P.name} gagal bikin issue 😢 Cek token GitHub (env GITHUB_TOKEN) di Cloudflare Pages.`);
       }
@@ -68,8 +71,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
       if (review) {
         const cm = await ghCommentIssue(env, n, `**Review dari ${P.name} (${P.role}):**\n\n${review}`);
         await tgSend(token, chatId, cm ? `✅ <b>${P.name}</b> udah nge-review PR <a href="${cm.url}">#${n} ${pr.title}</a>` : `Review jadi tapi gagal ke-post di PR 😢`);
-        await logMsg(env, who, 'user', `Boss, review PR #${n} (${pr.title}) udah aku post di GitHub.`);
-        await setStatus(env, who, 'bicara');
+        const report = await aiChatRetry(env, who, `Kamu baru saja posting review PR #${n} "${pr.title}" di GitHub. Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.`);
+        if (report) {
+          await logMsg(env, who, 'user', report);
+          await setStatus(env, who, 'bicara');
+        }
       } else {
         await tgSend(token, chatId, `${P.name} lagi gak bisa nyusun review (AI down) 😢 coba lagi bentar.`);
       }
@@ -82,8 +88,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const r = await webFindReplace(env, uw[1], uw[2]);
       if (r.ok) {
         await tgSend(token, chatId, `✅ Web <b>benar-benar diubah</b> & ter-commit <code>${r.commit}</code> di ${r.file}${r.deployed ? ', deploy Cloudflare udah diterbitkan' : ' (deploy belum sukses — cek status web)'} 🔗 cek klinco web kamu`);
-        await logMsg(env, c, 'user', `Boss, teks web udah aku ubah beneran: "${String(uw[1]).slice(0, 50)}" jadi "${String(uw[2]).slice(0, 50)}" (${r.commit})`);
-        await setStatus(env, c, 'bicara');
+        const report = await aiChatRetry(env, c, `Kamu baru saja berhasil mengupdate teks website dan commit ke GitHub (${r.commit}). Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.`);
+        if (report) {
+          await logMsg(env, c, 'user', report);
+          await setStatus(env, c, 'bicara');
+        }
       } else {
         await tgSend(token, chatId, `Gagal: ${r.error}`);
       }
@@ -93,7 +102,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (dp) {
       const ok = await cfDeploy(env);
       await tgSend(token, chatId, ok ? '✅ Deploy baru udah diterbitkan ke Cloudflare Pages — sebentar lagi live.' : 'Gagal trigger deploy 😢 cek token Cloudflare di Pages settings.');
-      await logMsg(env, c, 'user', 'Boss, deploy web baru udah aku terbitkan di Cloudflare.');
+      if (ok) {
+        const report = await aiChatRetry(env, c, `Kamu baru saja menerbitkan deploy baru ke Cloudflare Pages. Beritahu Boss dengan gaya bicaramu dalam 1 kalimat santai.`);
+        if (report) {
+          await logMsg(env, c, 'user', report);
+          await setStatus(env, c, 'bicara');
+        }
+      }
       return Response.json({ ok: true });
     }
     const ws = text.match(/^(?:status|cek)\s+(?:web|deploy|situs|website)\s*$/i);
@@ -161,10 +176,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
         const { aiSay: say, setStatus: setS, logMsg: log } = await import('./_lib.js');
         await setS(env, c, 'mengetik');
         let line = await say(env, c, `CEO menyuruhmu ke ${place === 'meja' ? 'meja kerjamu' : place}. Jawab satu kalimat singkat dengan gaya bicaramu, kamu akan jalan ke sana.`);
-        if (!line || line.length < 8) line = 'Oke, aku jalan ke sana sekarang!';
+        if (!line || line.length < 5) line = '';
         await log(env, c, 'user', line, 'goto', place);
-        await setS(env, c, 'bicara');
-        await new Promise(r => setTimeout(r, 15000));
+        if (line) {
+          await setS(env, c, 'bicara');
+          await new Promise(r => setTimeout(r, 12000));
+        }
         await setS(env, c, 'idle');
       })().catch(() => {}));
       return Response.json({ ok: true });
@@ -172,7 +189,6 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     if (text.startsWith('/start')) {
       await tgSend(token, chatId, `Halo! Aku ${P.name}, ${P.role} di Clincoo Office 🏢\n\nNgobrol langsung aja denganku di sini, atau suruh aku ngobrol dengan rekan kerja:\n<code>ke Dimas: bahas deploy besok</code>\n\nRuang kantor kami: vylonium.biz.id`);
-      await logMsg(env, c, 'kantor', `(${P.name} menyapa seseorang lewat Telegram)`);
       return Response.json({ ok: true });
     }
 
