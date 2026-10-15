@@ -13,6 +13,31 @@ export const PERSONAS = {
 
 export function persona(id) { return PERSONAS[String(id || '').toLowerCase()] || null; }
 
+// ===== SETTINGS RUNTIME (dari dashboard, fallback ke env) =====
+const SET_CACHE = {};
+export async function getSetting(env, k) {
+  if (k in SET_CACHE) return SET_CACHE[k];
+  let v = null;
+  try { const r = await env.DB.prepare('SELECT v FROM office_settings WHERE k = ?').bind(k).first(); v = r ? r.v : null; } catch (e) {}
+  SET_CACHE[k] = v; return v;
+}
+export async function setSetting(env, k, v) {
+  SET_CACHE[k] = (v === '' || v == null) ? null : String(v);
+  if (v === '' || v == null) { await env.DB.prepare('DELETE FROM office_settings WHERE k = ?').bind(k).run(); return; }
+  await env.DB.prepare('INSERT INTO office_settings (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = ?2').bind(k, String(v)).run();
+}
+// Bot kustom dari dashboard dimuat ke PERSONAS (isolat worker per request)
+let _pLoaded = false;
+export async function ensurePersonas(env) {
+  if (_pLoaded) return; _pLoaded = true;
+  try {
+    const rows = await env.DB.prepare('SELECT * FROM office_bots').all();
+    for (const b of rows.results || []) {
+      if (!PERSONAS[b.id]) PERSONAS[b.id] = { name: b.name, role: b.role, color: '#94a3b8', emoji: b.emoji || '🤖', sys: b.sys || `Kamu ${b.name}, ${b.role} di startup Clincoo.`, custom: true };
+    }
+  } catch (e) {}
+}
+
 export async function ensureSchema(env) {
   await env.DB.batch([
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_msg (id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, from_c TEXT, to_c TEXT, text TEXT)'),
@@ -20,6 +45,10 @@ export async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_chat (char TEXT PRIMARY KEY, chat_id TEXT)'),
   ]);
   try { await env.DB.prepare('CREATE TABLE IF NOT EXISTS office_run (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, data TEXT, step INTEGER DEFAULT 0, ts REAL)').run(); } catch (e) {}
+  try { await env.DB.batch([
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS office_bots (id TEXT PRIMARY KEY, name TEXT, role TEXT, emoji TEXT, sys TEXT, tg_token TEXT, gh_labels TEXT, created_at REAL)'),
+    env.DB.prepare('CREATE TABLE IF NOT EXISTS office_settings (k TEXT PRIMARY KEY, v TEXT)')
+  ]); } catch (e) {}
   try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN kind TEXT').run(); } catch (e) {}
   try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN place TEXT').run(); } catch (e) {}
 }
@@ -45,9 +74,10 @@ export async function getBoard(env, since) {
 }
 
 async function geminiChat(env, sys, user) {
-  const key = env.GEMINI_API_KEY;
+  const key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
-  const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+  const mMain = (await getSetting(env, 'gemini_model')) || 'gemini-2.0-flash';
+  const models = [mMain, 'gemini-2.0-flash-lite'];
   for (const model of models) {
     try {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
@@ -66,9 +96,10 @@ async function geminiChat(env, sys, user) {
 }
 
 async function openrouterChat(env, sys, user) {
-  const key = env.OPENROUTER_API_KEY;
+  const key = (await getSetting(env, 'openrouter_api_key')) || env.OPENROUTER_API_KEY;
   if (!key) return null;
-  for (const model of ['cohere/north-mini-code:free']) {
+  const mMain = (await getSetting(env, 'openrouter_model')) || 'cohere/north-mini-code:free';
+  for (const model of [mMain]) {
     try {
       const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
@@ -220,6 +251,7 @@ export async function scheduleRun(env, kind, data) {
 
 // proses SATU langkah antrian tertua; return true jika masih ada langkah lanjutan
 export async function runDirectorStep(env) {
+  await ensurePersonas(env);
   const row = await env.DB.prepare('SELECT * FROM office_run ORDER BY id LIMIT 1').first();
   if (!row) return false;
   let data = {};
