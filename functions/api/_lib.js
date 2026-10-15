@@ -163,13 +163,12 @@ export async function runDialogue(env, fromId, toId, topic, notify) {
     { who: toId,  to: fromId, build: () => `${A.name} (${A.role}) barusan dateng dan bilang: "${last}". Tanggapi isinya — bisa setuju, nambahin, bercanda dikit, atau nanya balik. Jangan cuma "oke/siap". 1-2 kalimat, gaya bicaramu sendiri.` },
     { who: fromId, to: toId, build: () => `${B.name} barusan jawab: "${last}". Tanggapi sekali lagi singkat dan natural, terus tutup dengan cara enak aja (misal ajak lanjut nanti, atau pamit gak formal). Jangan kata "siap".` },
   ];
-  const DFL = ['Oh iya, kepikiran juga tadi soal itu 😄', 'Hmm setuju, nanti kita bahas lagi ya!', 'Btw aku saranin kita coba dulu, siapa tahu bagus.', 'Wih menarik, aku ikut nimbrung deh.'];
   for (let i = 0; i < turnDefs.length; i++) {
     const t = turnDefs[i];
     if (i > 0) await sleep(8000);
     await setStatus(env, t.who, 'mengetik');
     let line = await aiSayRetry(env, t.who, t.build());
-    if (!line || line.length < 8) line = DFL[Math.floor(Math.random() * DFL.length)];
+    if (!line || line.length < 8) continue; // AI gagal: lewati giliran, tanpa obrolan palsu
     last = line;
     await logMsg(env, t.who, t.to, line);
     await setStatus(env, t.who, 'bicara');
@@ -207,7 +206,7 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
   let line = await aiSay(env, summonerId, placeOnly
     ? `CEO menyuruhmu menyampaikan ke ${T.name} (${T.role}): "${dia_atau_kamu(T.name)} harus ke ${label} sekarang." Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`
     : `CEO memanggil ${T.name} (${T.role}) ke ${label}. Kamu disuruh menyampaikannya. Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`);
-  if (!line || line.length < 8) line = `${T.name}! Kamu dicari CEO tuh, buruan ke ${label} 😄`;
+
   await logMsg(env, summonerId, targetId, line);
   await setStatus(env, summonerId, 'bicara');
   // avatar CEO ikut bergerak ke tempat tujuan (hadir, tanpa bicara)
@@ -216,8 +215,7 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
   // beri jeda agar dramaturgi jalan (summoner selesai bicara, target merespons)
   await sleep(3000);
   await setStatus(env, targetId, 'mengetik');
-  let ack = await aiSay(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
-  if (!ack || ack.length < 8) ack = `Oke, otw ke ${label} bentar ya!`;
+  let ack = await aiSayRetry(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
   await logMsg(env, targetId, 'user', ack, 'goto', place);
   await setStatus(env, targetId, 'bicara');
 
@@ -280,18 +278,17 @@ async function meetingStep(env, d, step) {
   }
   if (step === 1) { // semua sudah kumpul → A buka rapat
     await setStatus(env, d.a, 'mengetik');
-    let l1 = await aiSay(env, d.a, `Kamu dan ${B.name} (${B.role}) baru kumpul di ruang meeting soal "${topic}", CEO ada di situ. Buka rapatnya natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
-    if (!l1 || l1.length < 8) l1 = `Oke, semua udah kumpul. Soal ${topic} — ${B.name}, kamu mulai dulu gimana?`;
-    await logMsg(env, d.a, d.b, l1);
+    let l1 = await aiSayRetry(env, d.a, `Kalian tim Clincoo sedang rapat di ruang meeting soal "${topic}" — CEO ada di situ. Tujuan rapat: mencari ide konkret untuk mengembangkan Clincoo. Buka rapatnya natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
+    if (l1) { await logMsg(env, d.a, d.b, l1); d.last = l1; }
+    if (!d.last) d.last = `(rapat dimulai soal ${topic})`;
     await setStatus(env, d.a, 'bicara');
     d.last = l1;
     return true;
   }
   if (step === 2) { // B nanggep
     await setStatus(env, d.b, 'mengetik');
-    let l2 = await aiSay(env, d.b, `${A.name} (${A.role}) buka rapat soal "${topic}" dengan bilang: "${d.last}". Kamu udah di ruang meeting bareng dia dan CEO. Jawab natural, 1-2 kalimat, gaya bicaramu sendiri.`);
-    if (!l2 || l2.length < 8) l2 = `Menurutku ${topic} perlu dibahas pelan-pelan nih. Aku ada beberapa ide.`;
-    await logMsg(env, d.b, d.a, l2);
+    let l2 = await aiSayRetry(env, d.b, `${A.name} (${A.role}) buka rapat soal "${topic}" dengan bilang: "${d.last}". Kamu udah di ruang meeting bareng dia dan CEO. Sampaikan pendapat atau idemu buat mengembangkan Clincoo — konkret dan spesifik ke bidangmu. Jawab natural, 1-2 kalimat, gaya bicaramu sendiri.`);
+    if (l2) { await logMsg(env, d.b, d.a, l2); d.last = l2; }
     await setStatus(env, d.b, 'bicara');
     d.last = l2;
     return true;
@@ -300,11 +297,8 @@ async function meetingStep(env, d, step) {
     const who = step === 3 ? d.a : d.b, other = step === 3 ? d.b : d.a;
     const P = persona(other);
     await setStatus(env, who, 'mengetik');
-    let line = await aiSay(env, who, `Kamu lagi rapat sama ${P.name} (${P.role}) soal "${topic}", kalian berdua di meja meeting dan CEO nyimak. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
-    if (!line || line.length < 8) {
-      const FL = ['Setuju nih. Kita jalanin dulu pelan-pelan aja, nanti dievaluasi lagi ya.', 'Btw aku rasa kita perlu data lebih banyak dulu, jangan buru-buru.', 'Hmm masuk akal juga tuh. Kalau gitu aku bantu siapin dari sisi aku ya.'];
-      line = FL[Math.floor(Math.random() * FL.length)];
-    }
+    let line = await aiSayRetry(env, who, `Kamu lagi rapat sama ${P.name} (${P.role}) soal "${topic}" — fokusnya cari langkah konkret mengembangkan Clincoo. Kalian berdua di meja meeting dan CEO nyimak. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide dari sisi keahlianmu, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
+    if (!line || line.length < 8) return true; // AI gagal: lewati giliran ini
     d.last = line;
     await logMsg(env, who, other, line);
     await setStatus(env, who, 'bicara');
@@ -312,13 +306,8 @@ async function meetingStep(env, d, step) {
   }
   // step 5: penutup + semua boleh bubar
   await setStatus(env, d.a, 'mengetik');
-  let end = await aiSay(env, d.a, `Rapat soal "${topic}" sama ${B.name} udah kelar. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
-  if (!end || end.length < 8) {
-    const FE = ['Oke, gitu aja dulu ya kesimpulannya. Kita balik kerja, lanjut nanti kalau ada update! 👍', 'Dah ya, kita angkat topik ini lagi pas udah ada data baru. Balik kerja dulu! 💪', 'Nah gitu, deal! Aku balik ke meja dulu ya, kalau ada yang mau ditambah chat aja.'];
-    end = FE[Math.floor(Math.random() * FE.length)];
-  }
-  await logMsg(env, d.a, d.b, end);
-  await setStatus(env, d.a, 'bicara');
+  let end = await aiSayRetry(env, d.a, `Rapat soal "${topic}" sama ${B.name} udah kelar. Tutup natural — kesimpulan singkat soal rencana mengembangkan Clincoo, atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
+  if (end) { await logMsg(env, d.a, d.b, end); await setStatus(env, d.a, 'bicara'); }
   await sleep(4000);
   await setStatus(env, d.a, 'idle');
   await setStatus(env, d.b, 'idle');
