@@ -2425,9 +2425,23 @@ function animate(t){
   updateAll(delta, s);
 
   if(pov){ loadCh(ctrlChar); povCam(delta, s); } else controls.update();
-  renderer.render(scene, camera);
-  updCaps();
+
+  // hemat GPU: render hanya saat ada gerakan (kamera/karakter/POV);
+  // saat kantor diam, cukup ~8fps agar tetap HD tapi ringan
+  let busy = !!pov;
+  const cs = camera.position.x.toFixed(3) + ',' + camera.position.y.toFixed(3) + ',' + camera.position.z.toFixed(3)
+    + ',' + camera.quaternion.x.toFixed(3) + camera.quaternion.y.toFixed(3) + camera.quaternion.z.toFixed(3)
+    + ',' + controls.target.x.toFixed(3) + ',' + controls.target.y.toFixed(3) + ',' + controls.target.z.toFixed(3);
+  if (cs !== lastCamSig) { lastCamSig = cs; busy = true; }
+  for (let i = 0; i < CHARS.length; i++) {
+    const p = CHARS[i].player.position;
+    const l = lastPosSig[i] || (lastPosSig[i] = { x: 1e9, y: 1e9, z: 1e9 });
+    if (Math.abs(p.x - l.x) > 0.004 || Math.abs(p.z - l.z) > 0.004 || Math.abs(p.y - l.y) > 0.004) busy = true;
+    l.x = p.x; l.y = p.y; l.z = p.z;
+  }
+  if (busy || s - lastDraw >= 0.125) { renderer.render(scene, camera); updCaps(); lastDraw = s; }
 }
+let lastCamSig = '', lastPosSig = [], lastDraw = -1;
 window.__OFFICE = {
   get CHARS(){ try { return CHARS; } catch(e) { return []; } },
   get STAIRS(){ try { return STAIRS; } catch(e) { return []; } },
@@ -2436,6 +2450,6 @@ window.__OFFICE = {
 };
 window.onload = init;
 </script>
-<script src="office-live.js" defer></script>
+<script src="office-live.js?v=20261015a" defer></script>
 </body>
 </html>
