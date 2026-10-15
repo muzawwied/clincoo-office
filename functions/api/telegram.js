@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -39,6 +39,16 @@ export async function onRequestPost({ request, env, waitUntil }) {
       } else {
         await tgSend(token, chatId, `Hmm, ${P.name} gagal bikin issue 😢 Cek token GitHub (env GITHUB_TOKEN) di Cloudflare Pages.`);
       }
+      return Response.json({ ok: true });
+    }
+    const gl = text.match(/^(?:daftar|list|lihat|cek|show)\s+(issue|issues|tiket|pr|pull|pr\\s|repo)/i) || text.match(/^(?:ada|open)\s+(?:issue|pr)\s*\?*$/i);
+    if (gl) {
+      const kind = /pr|pull/.test(text) ? 'pr' : 'issue';
+      const items = await ghList(env, kind);
+      if (items === null) { await tgSend(token, chatId, 'Gak bisa ngambil dari GitHub 😢 cek token di Pages settings.'); return Response.json({ ok: true }); }
+      if (!items.length) { await tgSend(token, chatId, kind === 'pr' ? 'Belum ada PR terbuka 👌' : 'Belum ada issue terbuka 👌'); return Response.json({ ok: true }); }
+      const lines = items.map((x) => `<a href="${x.url}">#${x.n}</a> ${x.t.slice(0, 60)}`).join('\n');
+      await tgSend(token, chatId, `📋 <b>${kind === 'pr' ? 'PR terbuka' : 'Issue terbuka'}:</b>\n${lines}`);
       return Response.json({ ok: true });
     }
     const gr = text.match(/^(?:suruh(?:in)?\s+)?(rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
