@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     const P = persona(c);
@@ -73,6 +73,37 @@ export async function onRequestPost({ request, env, waitUntil }) {
       } else {
         await tgSend(token, chatId, `${P.name} lagi gak bisa nyusun review (AI down) 😢 coba lagi bentar.`);
       }
+      return Response.json({ ok: true });
+    }
+
+    // ===== KONTROL NYATA WEB (GitHub + Cloudflare) =====
+    const uw = text.match(/^(?:suruh\s+\w+\s+)?update\s+web\s*:?[\s]*(?:ganti|ubah)\s+(.+?)\s+(?:jadi|menjadi|dengan)\s+(.+)$/i);
+    if (uw) {
+      const r = await webFindReplace(env, uw[1], uw[2]);
+      if (r.ok) {
+        await tgSend(token, chatId, `✅ Web <b>benar-benar diubah</b> & ter-commit <code>${r.commit}</code> di ${r.file}${r.deployed ? ', deploy Cloudflare udah diterbitkan' : ' (deploy belum sukses — cek status web)'} 🔗 cek klinco web kamu`);
+        await logMsg(env, c, 'user', `Boss, teks web udah aku ubah beneran: "${String(uw[1]).slice(0, 50)}" jadi "${String(uw[2]).slice(0, 50)}" (${r.commit})`);
+        await setStatus(env, c, 'bicara');
+      } else {
+        await tgSend(token, chatId, `Gagal: ${r.error}`);
+      }
+      return Response.json({ ok: true });
+    }
+    const dp = text.match(/^(?:deploy|terbitkan)(?:\s+(?:ulang|web|situs|website|lagi))*\s*$/i);
+    if (dp) {
+      const ok = await cfDeploy(env);
+      await tgSend(token, chatId, ok ? '✅ Deploy baru udah diterbitkan ke Cloudflare Pages — sebentar lagi live.' : 'Gagal trigger deploy 😢 cek token Cloudflare di Pages settings.');
+      await logMsg(env, c, 'user', 'Boss, deploy web baru udah aku terbitkan di Cloudflare.');
+      return Response.json({ ok: true });
+    }
+    const ws = text.match(/^(?:status|cek)\s+(?:web|deploy|situs|website)\s*$/i);
+    if (ws) {
+      const st = await cfStatus(env);
+      const dm = await cfDomains(env);
+      const dl = dm.map((x) => `${x.name}: ${x.status}`).join(' · ') || '-';
+      await tgSend(token, chatId, st
+        ? `📊 Status web:<b> ${st.status}</b> (${st.stage || '-'})\nDomain: ${dl}\nDeploy terakhir: ${new Date(st.created).toLocaleString('id-ID')}`
+        : 'Gak bisa ngambil status 😢 cek token Cloudflare.');
       return Response.json({ ok: true });
     }
 
