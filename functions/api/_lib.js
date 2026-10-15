@@ -84,7 +84,7 @@ async function openrouterChat(env, sys, user) {
 export async function aiSay(env, charId, userPrompt) {
   const p = persona(charId);
   if (!p) return null;
-  const sys = p.sys + ' Kamu sedang di kantor 3D Clincoo Office. Balasanmu akan ditampilkan sebagai percakapan singkat di papan nama. JANGAN menyebut bahwa kamu AI.';
+  const sys = p.sys + ' Kamu sedang di kantor 3D Clincoo Office. Balasanmu ditampilkan sebagai obrolan singkat di papan nama. Tulis seperti orang beneran ngobrol di kantor: singkat, santai, natural, boleh bahasa gaul. JANGAN formal/kaku, JANGAN pakai kata "siap", JANGAN menyebut bahwa kamu AI.';
   let t = await geminiChat(env, sys, userPrompt);
   if (!t) t = await openrouterChat(env, sys, userPrompt);
   return t || null;
@@ -116,9 +116,9 @@ export async function runDialogue(env, fromId, toId, topic, notify) {
   if (!A || !B) throw new Error('karakter tidak dikenal');
   let last = '';
   const turnDefs = [
-    { who: fromId, to: toId, build: () => `Saat ini di kantor, kamu mau mengajak ${B.name} (${B.role}) bicara tentang: "${topic}". Tulis satu kalimat pembuka obrolan santai dengan gaya bicaramu sendiri.` },
-    { who: toId,  to: fromId, build: () => `Barusan ${A.name} (${A.role}) datang dan bilang ke kamu: "${last}". Balas dengan gaya bicaramu sendiri, tanggapi isinya secara natural.` },
-    { who: fromId, to: toId, build: () => `Kamu baru dengar balasan ${B.name}: "${last}". Tanggapi sekali lagi singkat dan natural, lalu pamit singkat karena harus lanjut kerja.` },
+    { who: fromId, to: toId, build: () => `Kamu nyamperin ${B.name} (${B.role}) di kantor mau ngajak ngobrol soal: "${topic}". Buka obrolan seperti beneran ngobrol: santai, natural, gaya bicaramu sendiri. 1-2 kalimat.` },
+    { who: toId,  to: fromId, build: () => `${A.name} (${A.role}) barusan dateng dan bilang: "${last}". Tanggapi isinya — bisa setuju, nambahin, bercanda dikit, atau nanya balik. Jangan cuma "oke/siap". 1-2 kalimat, gaya bicaramu sendiri.` },
+    { who: fromId, to: toId, build: () => `${B.name} barusan jawab: "${last}". Tanggapi sekali lagi singkat dan natural, terus tutup dengan cara enak aja (misal ajak lanjut nanti, atau pamit gak formal). Jangan kata "siap".` },
   ];
   for (let i = 0; i < turnDefs.length; i++) {
     const t = turnDefs[i];
@@ -144,11 +144,12 @@ export const PLACE_WORDS = {
   gym: 'gym', olahraga: 'gym', lari: 'gym',
   nongkrong: 'nongkrong', santai: 'nongkrong', sofa: 'nongkrong',
   nonton: 'nonton', tv: 'nonton',
-  tidur: 'tidur', istirahat: 'tidur'
+  tidur: 'tidur', istirahat: 'tidur',
+  meeting: 'meeting', rapat: 'meeting'
 };
 export const PLACE_LABEL = {
   kantor: 'kantor', meja: 'meja kerjanya', ngopi: 'pantry', gym: 'gym',
-  nongkrong: 'area santai', nonton: 'depan TV', tidur: 'ruang istirahat'
+  nongkrong: 'area santai', nonton: 'depan TV', tidur: 'ruang istirahat', meeting: 'ruang meeting'
 };
 
 // Suruh summoner mendatangi target lalu menyampaikan perintah; target lalu berjalan ke tempat.
@@ -161,15 +162,17 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
   let line = await aiSay(env, summonerId, placeOnly
     ? `CEO menyuruhmu menyampaikan ke ${T.name} (${T.role}): "${dia_atau_kamu(T.name)} harus ke ${label} sekarang." Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`
     : `CEO memanggil ${T.name} (${T.role}) ke ${label}. Kamu disuruh menyampaikannya. Sampaikan dengan gaya bicaramu sendiri, satu kalimat.`);
-  if (!line || line.length < 8) line = `Hei ${T.name}, kamu dipanggil sama CEO, ke ${label} ya!`;
+  if (!line || line.length < 8) line = `${T.name}! Kamu dicari CEO tuh, buruan ke ${label} 😄`;
   await logMsg(env, summonerId, targetId, line);
   await setStatus(env, summonerId, 'bicara');
+  // avatar CEO ikut bergerak ke tempat tujuan (hadir, tanpa bicara)
+  await logMsg(env, 'user', targetId, '(CEO menemui di ' + label + ')', 'ceogoto', place);
 
   // beri jeda agar dramaturgi jalan (summoner selesai bicara, target merespons)
   await sleep(3000);
   await setStatus(env, targetId, 'mengetik');
   let ack = await aiSay(env, targetId, `Baru saja ${S.name} (${S.role}) datang menyampaikan: "${line}" (kamu diminta ke ${label}). Jawab singkat dengan gaya bicaramu sendiri sambil berjalan ke sana.`);
-  if (!ack || ack.length < 8) ack = `Oke, aku ke ${label} sekarang ya!`;
+  if (!ack || ack.length < 8) ack = `Oke, otw ke ${label} bentar ya!`;
   await logMsg(env, targetId, 'user', ack, 'goto', place);
   await setStatus(env, targetId, 'bicara');
 
@@ -184,3 +187,45 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
   await setStatus(env, targetId, 'idle');
 }
 function dia_atau_kamu(n) { return n; }
+
+
+// ===== PERINTAH CEO: meeting/rapat nyata =====
+// Kedua karakter jalan ke ruang meeting, CEO hadir menyaksikan, lalu diskusi multi-giliran.
+export async function runMeeting(env, aId, bId, topic) {
+  const A = persona(aId), B = persona(bId);
+  if (!A || !B) throw new Error('karakter tidak dikenal');
+  topic = (topic || '').trim().slice(0, 200) || 'evaluasi kerja minggu ini';
+  // CEO hadir duluan (diam, tanpa bubble)
+  await logMsg(env, 'user', aId, '(CEO menuju ruang meeting)', 'ceogoto', 'meeting');
+  await sleep(2000);
+  await setStatus(env, aId, 'mengetik');
+  let l1 = await aiSay(env, aId, `Kamu ada meeting sama ${B.name} (${B.role}) di ruang meeting soal "${topic}", CEO juga ada di situ. Buka obrolan natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
+  if (!l1 || l1.length < 8) l1 = `Oke, soal ${topic} — ${B.name}, kamu gimana pandangannya?`;
+  await logMsg(env, aId, bId, l1, 'goto', 'meeting');
+  await setStatus(env, aId, 'bicara');
+  await sleep(5000);
+  await setStatus(env, bId, 'mengetik');
+  let l2 = await aiSay(env, bId, `${A.name} (${A.role}) buka meeting soal "${topic}" dengan bilang: "${l1}". Jawab natural sambil jalan ke ruang meeting, 1-2 kalimat, gaya bicaramu sendiri.`);
+  if (!l2 || l2.length < 8) l2 = `Menurutku sih ${topic} tuh perlu dibahas pelan-pelan. Aku ada beberapa ide nih.`;
+  await logMsg(env, bId, aId, l2, 'goto', 'meeting');
+  await setStatus(env, bId, 'bicara');
+  let last = l2;
+  for (let i = 0; i < 2; i++) {
+    const who = i % 2 === 0 ? aId : bId, other = i % 2 === 0 ? bId : aId;
+    const P = persona(other);
+    await sleep(7000);
+    await setStatus(env, who, 'mengetik');
+    let line = await aiSay(env, who, `Kamu lagi meeting sama ${P.name} (${P.role}) soal "${topic}", CEO nyimak dari deket. ${P.name} barusan bilang: "${last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
+    if (!line || line.length < 8) break;
+    last = line;
+    await logMsg(env, who, other, line);
+    await setStatus(env, who, 'bicara');
+  }
+  await sleep(4000);
+  await setStatus(env, aId, 'mengetik');
+  let end = await aiSay(env, aId, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
+  if (end && end.length >= 8) await logMsg(env, aId, bId, end);
+  await sleep(10000);
+  await setStatus(env, aId, 'idle');
+  await setStatus(env, bId, 'idle');
+}
