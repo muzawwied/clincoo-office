@@ -314,16 +314,19 @@
       if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); return; }
       feedBtn.title = 'Riwayat obrolan';
       statusNow = j.status || {}; applyStatus();
+      const msgs = j.msgs || [];
+      if (!loaded) { // sinkronisasi awal: serap SEMUA batch riwayat dulu (API balas per 80)
+        for (const m of msgs) if (m.id > lastId) { lastId = m.id; addFeed(m); }
+        if (msgs.length < 80) loaded = true; // batch kurang dari 80 = riwayat habis, mulai mode live
+        return;
+      }
       let fresh = 0;
-      for (const m of (j.msgs || [])) {
+      for (const m of msgs) {
         if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
-        const isNew = loaded;
         lastId = Math.max(lastId, m.id);
-        if (!isNew) { addFeed(m); continue; } // riwayat lama saat sync awal: tanpa titik merah
         fresh++; queue.push(m);
       }
       if (fresh > 0 && !feed.classList.contains('on')) feedBtn.classList.add('ol-new');
-      loaded = true;
       if (!playing && queue.length) drain();
     } catch (e) { feedBtn.title = 'poll: ' + (e && e.message ? e.message : e); }
   }
