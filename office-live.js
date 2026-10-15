@@ -56,7 +56,7 @@
   const world = () => {
     if (W) return W;
     try { if (window.__OFFICE && window.__OFFICE.CHARS && window.__OFFICE.CHARS.length)
-      return (W = { CHARS: window.__OFFICE.CHARS, STAIRS: window.__OFFICE.STAIRS, astar: window.__OFFICE.astar, FY: window.__OFFICE.FY }); } catch (e) {}
+      return (W = { CHARS: window.__OFFICE.CHARS, POIS: window.__OFFICE.POIS || [], STAIRS: window.__OFFICE.STAIRS, astar: window.__OFFICE.astar, FY: window.__OFFICE.FY }); } catch (e) {}
     try { if (typeof CHARS !== 'undefined' && CHARS && CHARS.length)
       return (W = { CHARS, POIS: (typeof POIS !== 'undefined' ? POIS : null), STAIRS: (typeof STAIRS !== 'undefined' ? STAIRS : null), astar: (typeof astar !== 'undefined' ? astar : null), FY: (typeof FY !== 'undefined' ? FY : null) }); } catch (e) {}
     return null;
@@ -218,7 +218,13 @@
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
       if (m.place === 'meeting') { // RAPAT: duduk di kursi ruang meeting
         const ok = await sitAtMeeting(A, 20000);
-        if (!ok) await walkToPoint(A, PLACES.meeting, 20000); // fallback: berdiri dekat meja
+        if (!ok) { // fallback: berdiri tersebar mengelilingi meja (bukan numpuk 1 titik)
+          const idx = Math.max(0, W.CHARS.indexOf(A));
+          const ang = (idx / Math.max(1, W.CHARS.length)) * Math.PI * 2;
+          const spread = { f: 0, x: PLACES.meeting.x + Math.sin(ang) * 2.2, z: PLACES.meeting.z + 1.0 + Math.cos(ang) * 1.6 };
+          await walkToPoint(A, spread, 20000);
+          faceTo(A, { player: { position: { x: PLACES.meeting.x, y: 0, z: PLACES.meeting.z - 1 } } });
+        }
         if (m.text) addFeed(m);
         if (m.kind === 'goto' && m.text) await speak(A, m.text);
         A.waitDur = Math.max(savedWait, 240);
