@@ -90,7 +90,7 @@ async function geminiChat(env, sys, user, charId) {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(9000),
         body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
+          generationConfig: { temperature: 0.9, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } } })
       });
       if (!r.ok) continue; // model ditolak/sibuk -> coba model cascade berikutnya
       const j = await r.json();
