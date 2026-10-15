@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, PLACE_WORDS } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, PLACE_WORDS } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
 
     // ===== PERINTAH: meeting/rapat nyata =====
-    if (/rapat|meeting/i.test(text) && text.length <= 140 && !text.includes('?')) {
+    if (/rapat|meet(?:ing|in|t)|meating|metting/i.test(text) && text.length <= 140 && !text.includes('?')) {
       const uniq = [];
       for (const n of (text.toLowerCase().match(/\b(rafa|dimas|sari|bagas)\b/g) || []))
         if (!uniq.includes(n)) uniq.push(n);
@@ -90,8 +90,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // obrolan langsung dengan sang karakter
     await setStatus(env, c, 'mengetik');
-    const reply = await aiSay(env, c, `CEO kamu (pemilik Clincoo, panggil saja "Boss") ngobrol denganmu lewat Telegram dan berkata: "${text}". Balas sebagai ${P.name} dengan hormat tapi tetap santai.`);
-    const out = reply || 'Hmm, koneksi otakku lagi lambat, coba tanya lagi ya.';
+    const reply = await aiChatRetry(env, c, `CEO kamu (pemilik Clincoo, panggil saja "Boss") ngobrol denganmu lewat Telegram dan berkata: "${text}". Balas sebagai ${P.name} dengan hormat tapi tetap santai.`);
+    const FALL = [
+      'Aduh, sinyal ke otakku lagi garing 😅 boleh ulangi, Boss?',
+      'Maaf Boss, barusan kepotot — ulangi sekali lagi ya!',
+      'Hmm gagal nangkep tuh 😅 sekali lagi boleh?'
+    ];
+    const out = reply || FALL[Math.floor(Math.random() * FALL.length)];
     await logMsg(env, c, 'user', out);
     await setStatus(env, c, 'idle');
     await tgSend(token, chatId, out);
