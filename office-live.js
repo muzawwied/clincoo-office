@@ -17,8 +17,8 @@
     nongkrong: { f: 0, x: -26.0, z: 1.7 },
     nonton:    { f: 0, x: 22.95, z: -2.9 },
     tidur:     { f: 0, x: 12.25, z: 8.0 },
-    meeting:   { f: 0, x: -10.5, z: -13.5 }
-  };
+    meeting:   { f: 0, x: -10.5, z: -12.4 }
+  }; // z -12.4: sisi bebas meja (kursi di z -14.6, meja ~-13.5)
   // zona kerja per karakter (index CHARS) utk "ke meja"
   const DESK = { 0: { f: 0, x: -8, z: 2 }, 1: { f: 0, x: -8, z: 2 }, 2: { f: 0, x: 3, z: -13 }, 3: { f: 0, x: 14, z: -13 } };
 
@@ -191,7 +191,8 @@
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
-      const place = PLACES[m.place] || DESK[A.idx];
+      let place = PLACES[m.place] || DESK[A.idx];
+      if (m.place === 'meeting') place = { f: place.f, x: place.x + (A.idx % 2 ? 1.4 : -1.4), z: place.z }; // berdiri berdampingan, bukan numpuk
       await walkToPoint(A, place, 20000);
       addFeed(m);
       if (m.kind === 'goto') { await speak(A, m.text); A.yawNow = 0; }
