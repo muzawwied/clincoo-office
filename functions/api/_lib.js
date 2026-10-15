@@ -372,3 +372,67 @@ export async function ghList(env, kind) {
   if (!Array.isArray(j)) return null;
   return j.filter((x) => kind !== 'issue' || !x.pull_request).map((x) => ({ n: x.number, t: x.title, url: x.html_url }));
 }
+
+// ===== KONTROL NYATA: file web (GitHub) + deploy (Cloudflare) =====
+// PAGAR ANTI-MERUSAK: hanya file ini yang boleh diedit karakter, teks maks 300 karakter.
+const SAFE_EDIT_FILES = ['index.html', 'office-live.js'];
+async function ghGetFile(env, path) {
+  const j = await gh(env, 'GET', '/repos/' + ghRepo(env) + '/contents/' + encodeURIComponent(path) + '?ref=main');
+  if (!j || !j.content) return null;
+  const bin = Uint8Array.from(atob(j.content.replace(/\n/g, '')), (ch) => ch.charCodeAt(0));
+  return { sha: j.sha, text: new TextDecoder().decode(bin) };
+}
+async function ghPutFile(env, path, text, message, sha) {
+  const bytes = new TextEncoder().encode(text);
+  let b64 = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  const j = await gh(env, 'PUT', '/repos/' + ghRepo(env) + '/contents/' + encodeURIComponent(path), {
+    message, content: btoa(b64), branch: 'main', sha
+  });
+  return j && j.commit ? { sha: j.commit.sha, url: (j.content && j.content.html_url) || null } : null;
+}
+// ubah teks web beneran: cari di file aman, commit, deploy — hasil dilaporkan jujur
+export async function webFindReplace(env, oldText, newText) {
+  oldText = String(oldText || '').trim(); newText = String(newText || '').trim();
+  if (!oldText || oldText.length > 300 || newText.length > 300) return { ok: false, error: 'teks terlalu panjang (maks 300 karakter)' };
+  for (const f of SAFE_EDIT_FILES) {
+    const file = await ghGetFile(env, f);
+    if (!file) continue;
+    const i = file.text.indexOf(oldText);
+    if (i >= 0) {
+      const out = file.text.slice(0, i) + newText + file.text.slice(i + oldText.length);
+      const cm = await ghPutFile(env, f, out, '[clincoo-bot] ubah teks: "' + oldText.slice(0, 60) + '" -> "' + newText.slice(0, 60) + '"', file.sha);
+      if (!cm) return { ok: false, error: 'gagal commit ke GitHub' };
+      const deployed = await cfDeploy(env);
+      return { ok: true, file: f, commit: cm.sha.slice(0, 9), deployed };
+    }
+  }
+  return { ok: false, error: 'teks lama gak ketemu di file web (index.html / office-live.js)' };
+}
+async function cf(env, method, path, body) {
+  const tok = env.CLOUDFLARE_API_TOKEN, acc = env.CLOUDFLARE_ACCOUNT_ID;
+  if (!tok || !acc) return null;
+  try {
+    const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects/clincoo-office' + path, {
+      method, headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000)
+    });
+    return await r.json().catch(() => null);
+  } catch (e) { return null; }
+}
+export async function cfDeploy(env) {
+  const j = await cf(env, 'POST', '/deployments', { branch: 'main' });
+  return !!(j && j.success);
+}
+export async function cfStatus(env) {
+  const j = await cf(env, 'GET', '/deployments?per_page=1');
+  if (!j || !j.success || !j.result || !j.result.length) return null;
+  const d = j.result[0];
+  const stg = d.latest_stage || {};
+  return { status: stg.status, stage: stg.name, created: d.created_on, url: (d.urls && d.urls[0]) || null };
+}
+export async function cfDomains(env) {
+  const j = await cf(env, 'GET', '/domains');
+  if (!j || !j.success) return [];
+  return (j.result || []).map((x) => ({ name: x.name, status: x.status }));
+}
