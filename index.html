@@ -2300,7 +2300,7 @@ function buildAll(){
   [-28, -14, 0, 14, 28].forEach(x => B(scene, 0.7, FH, 0.7, 0x4a5362, x, 0, 20));
   g2 = new THREE.Group(); g2.position.y = FH; real.add(g2); mkExt(g2); scene = g2; shell(true); floor2();
   g3 = new THREE.Group(); g3.position.y = 2 * FH; real.add(g3); mkExt(g3); scene = g3; shell3(); floor3();
-  scene = g1; bathS(-25.4, -5.0, -19.8, -0.2, -22.6, 0); scene = g2; bathN(-25, 13, -19.4, 17.8, -23.5, 1);
+  scene = g2; bathN(-25, 13, -19.4, 17.8, -23.5, 1);
   ceilG[0] = mkCeil(g1, [[-28, -20, -19, 20], [-16, -20, 28, 20], [-19, -20, -16, 11], [-19, 19, -16, 20]]);
   ceilG[1] = mkCeil(g2, [[-28, -20, 10, 20], [10, -20, 23.4, 8], [25.6, -20, 28, 8], [23.4, -20, 25.6, -3], [23.4, 5, 25.6, 8]]);
   ceilG[2] = mkCeil(g3, [[-28, -20, 28, 8]]);
