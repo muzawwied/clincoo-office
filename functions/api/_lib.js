@@ -19,6 +19,7 @@ export async function ensureSchema(env) {
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_status (char TEXT PRIMARY KEY, status TEXT, ts REAL)'),
     env.DB.prepare('CREATE TABLE IF NOT EXISTS office_chat (char TEXT PRIMARY KEY, chat_id TEXT)'),
   ]);
+  try { await env.DB.prepare('CREATE TABLE IF NOT EXISTS office_run (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, data TEXT, step INTEGER DEFAULT 0, ts REAL)').run(); } catch (e) {}
   try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN kind TEXT').run(); } catch (e) {}
   try { await env.DB.prepare('ALTER TABLE office_msg ADD COLUMN place TEXT').run(); } catch (e) {}
 }
@@ -46,22 +47,20 @@ export async function getBoard(env, since) {
 async function geminiChat(env, sys, user) {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
-  const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash'];
+  const models = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
-          body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
-        });
-        if (!r.ok) { if (r.status === 429 || r.status >= 500) { await sleep(1500); continue; } break; }
-        const j = await r.json();
-        const t = (((j.candidates || [])[0] || {}).content || {}).parts;
-        if (t && t[0] && t[0].text) return String(t[0].text).trim().replace(/^["']|["']$/g, '');
-        break;
-      } catch (e) { await sleep(1200); }
-    }
+    try {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(9000),
+        body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.9, maxOutputTokens: 220 } })
+      });
+      if (!r.ok) { if (r.status === 429) continue; break; } // 429: coba model lite
+      const j = await r.json();
+      const t = (((j.candidates || [])[0] || {}).content || {}).parts;
+      if (t && t[0] && t[0].text) return String(t[0].text).trim().replace(/^["']|["']$/g, '');
+      break;
+    } catch (e) {}
   }
   return null;
 }
@@ -106,10 +105,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Retry utk obrolan langsung dengan CEO — jawaban boleh pendek.
 export async function aiChatRetry(env, charId, prompt) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     try { const t = await aiSay(env, charId, prompt); if (t && t.length >= 4) return t; }
     catch (e) {}
-    await sleep(4000);
+    await sleep(3000);
   }
   return null;
 }
@@ -202,43 +201,73 @@ export async function runSummon(env, summonerId, targetId, place, placeOnly) {
 function dia_atau_kamu(n) { return n; }
 
 
-// ===== PERINTAH CEO: meeting/rapat nyata =====
-// Kedua karakter jalan ke ruang meeting, CEO hadir menyaksikan, lalu diskusi multi-giliran.
-export async function runMeeting(env, aId, bId, topic) {
-  const A = persona(aId), B = persona(bId);
-  if (!A || !B) throw new Error('karakter tidak dikenal');
-  topic = (topic || '').trim().slice(0, 200) || 'evaluasi kerja minggu ini';
-  // CEO hadir duluan (diam, tanpa bubble)
-  await logMsg(env, 'user', aId, '(CEO menuju ruang meeting)', 'ceogoto', 'meeting');
-  await sleep(2000);
-  await setStatus(env, aId, 'mengetik');
-  let l1 = await aiSay(env, aId, `Kamu ada meeting sama ${B.name} (${B.role}) di ruang meeting soal "${topic}", CEO juga ada di situ. Buka obrolan natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
-  if (!l1 || l1.length < 8) l1 = `Oke, soal ${topic} — ${B.name}, kamu gimana pandangannya?`;
-  await logMsg(env, aId, bId, l1, 'goto', 'meeting');
-  await setStatus(env, aId, 'bicara');
-  await sleep(5000);
-  await setStatus(env, bId, 'mengetik');
-  let l2 = await aiSay(env, bId, `${A.name} (${A.role}) buka meeting soal "${topic}" dengan bilang: "${l1}". Jawab natural sambil jalan ke ruang meeting, 1-2 kalimat, gaya bicaramu sendiri.`);
-  if (!l2 || l2.length < 8) l2 = `Menurutku sih ${topic} tuh perlu dibahas pelan-pelan. Aku ada beberapa ide nih.`;
-  await logMsg(env, bId, aId, l2, 'goto', 'meeting');
-  await setStatus(env, bId, 'bicara');
-  let last = l2;
-  for (let i = 0; i < 2; i++) {
-    const who = i % 2 === 0 ? aId : bId, other = i % 2 === 0 ? bId : aId;
-    const P = persona(other);
-    await sleep(7000);
-    await setStatus(env, who, 'mengetik');
-    let line = await aiSay(env, who, `Kamu lagi meeting sama ${P.name} (${P.role}) soal "${topic}", CEO nyimak dari deket. ${P.name} barusan bilang: "${last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
-    if (!line || line.length < 8) break;
-    last = line;
-    await logMsg(env, who, other, line);
-    await setStatus(env, who, 'bicara');
+// ===== DIRECTOR: eksekusi alur panjang per-langkah =====
+// Cloudflare memotong background task ~30 detik; tiap langkah di sini
+// dibatasi pendek lalu di-chain lewat panggilan mandiri /api/director.
+
+export async function scheduleRun(env, kind, data) {
+  const r = await env.DB.prepare('INSERT INTO office_run (kind, data, step, ts) VALUES (?, ?, 0, ?)')
+    .bind(kind, JSON.stringify(data || {}), Date.now()).run();
+  return (r.meta && r.meta.last_row_id) || 0;
+}
+
+// proses SATU langkah antrian tertua; return true jika masih ada langkah lanjutan
+export async function runDirectorStep(env) {
+  const row = await env.DB.prepare('SELECT * FROM office_run ORDER BY id LIMIT 1').first();
+  if (!row) return false;
+  let data = {};
+  try { data = JSON.parse(row.data || '{}'); } catch (e) {}
+  const step = row.step || 0;
+  const more = await meetingStep(env, data, step);
+  if (more === null) {
+    await env.DB.prepare('DELETE FROM office_run WHERE id = ?').bind(row.id).run();
+    return false;
   }
-  await sleep(4000);
-  await setStatus(env, aId, 'mengetik');
-  let end = await aiSay(env, aId, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
-  if (end && end.length >= 8) await logMsg(env, aId, bId, end);
-  await sleep(10000);
-  await setStatus(env, aId, 'idle');
-  await setStatus(env, bId, 'idle');
+  await env.DB.prepare('UPDATE office_run SET data = ?, step = ? WHERE id = ?').bind(JSON.stringify(data), step + 1, row.id).run();
+  return true;
+}
+
+async function meetingStep(env, d, step) {
+  const A = persona(d.a), B = persona(d.b);
+  if (!A || !B) return null;
+  const topic = (d.topic || 'evaluasi kerja minggu ini').slice(0, 200);
+  if (step === 0) { // CEO hadir + pembuka dari A
+    await logMsg(env, 'user', d.a, '(CEO menuju ruang meeting)', 'ceogoto', 'meeting');
+    await setStatus(env, d.a, 'mengetik');
+    let l1 = await aiSay(env, d.a, `Kamu ada meeting sama ${B.name} (${B.role}) di ruang meeting soal "${topic}", CEO juga ada di situ. Buka obrolan natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
+    if (!l1 || l1.length < 8) l1 = `Oke, soal ${topic} — ${B.name}, kamu gimana pandangannya?`;
+    await logMsg(env, d.a, d.b, l1, 'goto', 'meeting');
+    await setStatus(env, d.a, 'bicara');
+    d.last = l1;
+    return true;
+  }
+  if (step === 1) { // jawaban B sambil jalan ke ruang meeting
+    await setStatus(env, d.b, 'mengetik');
+    let l2 = await aiSay(env, d.b, `${A.name} (${A.role}) buka meeting soal "${topic}" dengan bilang: "${d.last}". Jawab natural sambil jalan ke ruang meeting, 1-2 kalimat, gaya bicaramu sendiri.`);
+    if (!l2 || l2.length < 8) l2 = `Menurutku ${topic} perlu dibahas pelan-pelan nih. Aku ada beberapa ide.`;
+    await logMsg(env, d.b, d.a, l2, 'goto', 'meeting');
+    await setStatus(env, d.b, 'bicara');
+    d.last = l2;
+    return true;
+  }
+  if (step === 2 || step === 3) { // diskusi dua giliran di ruang meeting
+    const who = step === 2 ? d.a : d.b, other = step === 2 ? d.b : d.a;
+    const P = persona(other);
+    await setStatus(env, who, 'mengetik');
+    let line = await aiSay(env, who, `Kamu lagi meeting sama ${P.name} (${P.role}) soal "${topic}", CEO nyimak dari deket. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
+    if (line && line.length >= 8) {
+      d.last = line;
+      await logMsg(env, who, other, line);
+      await setStatus(env, who, 'bicara');
+    }
+    return true;
+  }
+  // step 4: penutup + status kembali normal
+  await setStatus(env, d.a, 'mengetik');
+  let end = await aiSay(env, d.a, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
+  if (end && end.length >= 8) { await logMsg(env, d.a, d.b, end); await setStatus(env, d.a, 'bicara'); }
+  await sleep(3000);
+  await setStatus(env, d.a, 'idle');
+  await setStatus(env, d.b, 'idle');
+  return null;
 }
