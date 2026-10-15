@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -22,6 +22,45 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
+
+    // ===== KERJAAAN NYATA: GitHub =====
+    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?\s*(?:bikin|buat|buka)\s+(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
+    if (gi) {
+      const who = (gi[1] || c).toLowerCase();
+      const title = gi[2].trim().slice(0, 300);
+      const P = persona(who);
+      const body = (await aiChatRetry(env, who, `Kamu ${P.name}, ${P.role} di Clincoo. CEO minta kamu bikin issue GitHub berjudul: "${title}". Tulis body issue dalam Markdown GitHub: deskripsi singkat masalah/tugas (2-4 baris), checklist langkah kerja pakai '- [ ]', dan kriteria selesai. Langsung isi, tanpa kalimat pembuka.`)) ||
+        `## ${title}\n\nDibuat oleh ${P.name} (${P.role}).\n\n### Checklist\n- [ ] Analisa kebutuhan\n- [ ] Pengerjaan\n- [ ] Review & merge`;
+      const iss = await ghCreateIssue(env, who, title, body);
+      if (iss) {
+        await tgSend(token, chatId, `✅ <b>${P.name}</b> bikin issue <a href="${iss.url}">#${iss.number}</a> di GitHub:\n<b>${title}</b>`);
+        await logMsg(env, who, 'user', `Boss, issue #${iss.number} udah aku bikin: ${title}`);
+        await setStatus(env, who, 'bicara');
+      } else {
+        await tgSend(token, chatId, `Hmm, ${P.name} gagal bikin issue 😢 Cek token GitHub (env GITHUB_TOKEN) di Cloudflare Pages.`);
+      }
+      return Response.json({ ok: true });
+    }
+    const gr = text.match(/^(?:suruh(?:in)?\s+)?(rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
+    if (gr) {
+      const who = (gr[1] || c).toLowerCase();
+      const n = Number(gr[2]);
+      const pr = await ghGetPR(env, n);
+      if (!pr) { await tgSend(token, chatId, `PR #${n} gak ketemu di repo 😅`); return Response.json({ ok: true }); }
+      const files = (await ghGetPRFiles(env, n)) || [];
+      const diff = files.slice(0, 20).map(f => `- ${f.status}: ${f.filename} (+${f.additions}/-${f.deletions})${f.patch ? '\n\`\`\`\n' + String(f.patch).slice(0, 400) + '\n\`\`\`' : ''}`).join('\n').slice(0, 3500);
+      const P = persona(who);
+      const review = await aiChatRetry(env, who, `Kamu ${P.name}, ${P.role}. Kamu diminta review PR #${n} "${pr.title}".\nPerubahan:\n${diff || '(gak bisa ambil diff)'}\n\nTulis review dalam Bahasa Indonesia santai: kesan umum, 2-3 poin penting (kekuatan atau risiko), dan saran perbaikan. Markdown GitHub, langsung ke inti.`);
+      if (review) {
+        const cm = await ghCommentIssue(env, n, `**Review dari ${P.name} (${P.role}):**\n\n${review}`);
+        await tgSend(token, chatId, cm ? `✅ <b>${P.name}</b> udah nge-review PR <a href="${cm.url}">#${n} ${pr.title}</a>` : `Review jadi tapi gagal ke-post di PR 😢`);
+        await logMsg(env, who, 'user', `Boss, review PR #${n} (${pr.title}) udah aku post di GitHub.`);
+        await setStatus(env, who, 'bicara');
+      } else {
+        await tgSend(token, chatId, `${P.name} lagi gak bisa nyusun review (AI down) 😢 coba lagi bentar.`);
+      }
+      return Response.json({ ok: true });
+    }
 
     // ===== PERINTAH: meeting/rapat nyata =====
     if (/rapat|meet(?:ing|in|t)|meating|metting/i.test(text) && text.length <= 140 && !text.includes('?')) {
