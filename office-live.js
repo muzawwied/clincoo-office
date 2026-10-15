@@ -16,7 +16,8 @@
     gym:       { f: 0, x: 18.2,  z: 7.0 },
     nongkrong: { f: 0, x: -26.0, z: 1.7 },
     nonton:    { f: 0, x: 22.95, z: -2.9 },
-    tidur:     { f: 0, x: 12.25, z: 8.0 }
+    tidur:     { f: 0, x: 12.25, z: 8.0 },
+    meeting:   { f: 0, x: -10.5, z: -13.5 }
   };
   // zona kerja per karakter (index CHARS) utk "ke meja"
   const DESK = { 0: { f: 0, x: -8, z: 2 }, 1: { f: 0, x: -8, z: 2 }, 2: { f: 0, x: 3, z: -13 }, 3: { f: 0, x: 14, z: -13 } };
@@ -185,17 +186,16 @@
     if (!A) { addFeed(m); return; }
     // pesan CEO->bot dan bot->CEO cukup di Riwayat saja (tak perlu berdiri & ngomong),
     // kecuali eksekusi perintah goto yang memang harus diperankan karakter
-    if (m.from_c === 'user' && m.kind !== 'goto') { addFeed(m); return; }
+    if (m.from_c === 'user' && m.kind !== 'goto' && m.kind !== 'ceogoto') { addFeed(m); return; }
     if (m.to_c === 'user' && m.kind !== 'goto') { addFeed(m); return; }
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
-    if (m.kind === 'goto') {
+    if (m.kind === 'goto' || m.kind === 'ceogoto') {
       const place = PLACES[m.place] || DESK[A.idx];
       await walkToPoint(A, place, 20000);
       addFeed(m);
-      await speak(A, m.text);
-      A.yawNow = 0;
-      A.waitDur = savedWait;
+      if (m.kind === 'goto') { await speak(A, m.text); A.yawNow = 0; }
+      A.waitDur = Math.max(savedWait, 40); // tinggal sebentar di tempat, biar gak kabur duluan
       return;
     }
     if (B && B !== A) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
