@@ -248,7 +248,7 @@
       if (fresh > 0 && !feed.classList.contains('on')) feedBtn.classList.add('ol-new');
       loaded = true;
       if (!playing && queue.length) drain();
-    } catch (e) { feedBtn.title = 'poll: ' + (e && e.message ? e.message : e); feedBtn.classList.add('ol-new'); }
+    } catch (e) { feedBtn.title = 'poll: ' + (e && e.message ? e.message : e); }
   }
 
   function start() {
