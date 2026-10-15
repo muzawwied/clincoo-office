@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
 
     // ===== KERJAAAN NYATA: GitHub =====
-    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?\s*(?:bikin|buat|buka)\s+(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
+    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
     if (gi) {
       const who = (gi[1] || c).toLowerCase();
       const title = gi[2].trim().slice(0, 300);
