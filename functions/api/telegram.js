@@ -4,11 +4,15 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const url = new URL(request.url);
     const c = String(url.searchParams.get('c') || '').toLowerCase();
     const s = String(url.searchParams.get('s') || '');
-    const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
+    let token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
+    if (!token || s !== token) {
+      try { const r = await env.DB.prepare('SELECT tg_token FROM office_bots WHERE id = ?').bind(c).first(); if (r && r.tg_token && s === r.tg_token) token = r.tg_token; } catch (e) {}
+    }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList } = await import('./_lib.js');
     await ensureSchema(env);
+    await ensurePersonas(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
 
