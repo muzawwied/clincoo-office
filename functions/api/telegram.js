@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, logMsg, setStatus, tgSend, runDialogue, runSummon, PLACE_WORDS } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, PLACE_WORDS } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -22,6 +22,23 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
+
+    // ===== PERINTAH: meeting/rapat nyata =====
+    if (/rapat|meeting/i.test(text) && text.length <= 140 && !text.includes('?')) {
+      const uniq = [];
+      for (const n of (text.toLowerCase().match(/\b(rafa|dimas|sari|bagas)\b/g) || []))
+        if (!uniq.includes(n)) uniq.push(n);
+      let a = uniq[0] || c;               // tanpa nama: bot ini yang rapat
+      let b = uniq[1] || (a !== c ? c : ['rafa','dimas','sari','bagas'].filter(x => x !== a)[Math.floor(Math.random() * 3)]);
+      const tm = text.match(/(?:soal|tentang|ttg|about)\s+(.+)$/i);
+      const topic = tm ? tm[1].trim().slice(0, 200) : 'evaluasi kerja minggu ini';
+      if (a !== b) {
+        const P1 = persona(a), P2 = persona(b);
+        await tgSend(token, chatId, `Siap, <b>${P1.name}</b> sama <b>${P2.name}</b> meeting soal <i>${topic}</i> di ruang meeting 📋 Lihat aksinya di vylonium.biz.id`);
+        waitUntil(runMeeting(env, a, b, topic).catch(() => {}));
+        return Response.json({ ok: true });
+      }
+    }
 
     // ===== PERINTAH: panggil/suruh <nama> [ke <tempat>] =====
     const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(rafa|dimas|sari|bagas)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
