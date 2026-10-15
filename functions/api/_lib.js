@@ -132,11 +132,13 @@ export async function runDialogue(env, fromId, toId, topic, notify) {
     { who: toId,  to: fromId, build: () => `${A.name} (${A.role}) barusan dateng dan bilang: "${last}". Tanggapi isinya — bisa setuju, nambahin, bercanda dikit, atau nanya balik. Jangan cuma "oke/siap". 1-2 kalimat, gaya bicaramu sendiri.` },
     { who: fromId, to: toId, build: () => `${B.name} barusan jawab: "${last}". Tanggapi sekali lagi singkat dan natural, terus tutup dengan cara enak aja (misal ajak lanjut nanti, atau pamit gak formal). Jangan kata "siap".` },
   ];
+  const DFL = ['Oh iya, kepikiran juga tadi soal itu 😄', 'Hmm setuju, nanti kita bahas lagi ya!', 'Btw aku saranin kita coba dulu, siapa tahu bagus.', 'Wih menarik, aku ikut nimbrung deh.'];
   for (let i = 0; i < turnDefs.length; i++) {
     const t = turnDefs[i];
     if (i > 0) await sleep(8000);
     await setStatus(env, t.who, 'mengetik');
     let line = await aiSayRetry(env, t.who, t.build());
+    if (!line || line.length < 8) line = DFL[Math.floor(Math.random() * DFL.length)];
     last = line;
     await logMsg(env, t.who, t.to, line);
     await setStatus(env, t.who, 'bicara');
@@ -236,30 +238,37 @@ async function meetingStep(env, d, step) {
   const A = persona(d.a), B = persona(d.b);
   if (!A || !B) return null;
   const topic = (d.topic || 'evaluasi kerja minggu ini').slice(0, 200);
-  if (step === 0) { // CEO hadir + pembuka dari A
+  if (step === 0) { // KUMPUL: CEO + A + B semua jalan ke ruang meeting, masih diam
     await logMsg(env, 'user', d.a, '(CEO menuju ruang meeting)', 'ceogoto', 'meeting');
+    await logMsg(env, d.a, d.b, '', 'goto', 'meeting');
+    await logMsg(env, d.b, d.a, '', 'goto', 'meeting');
+    await setStatus(env, d.a, 'bicara'); // terlihat 'hadir', nunggu semua nyampe
+    await setStatus(env, d.b, 'bicara');
+    return true;
+  }
+  if (step === 1) { // semua sudah kumpul → A buka rapat
     await setStatus(env, d.a, 'mengetik');
-    let l1 = await aiSay(env, d.a, `Kamu ada meeting sama ${B.name} (${B.role}) di ruang meeting soal "${topic}", CEO juga ada di situ. Buka obrolan natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
-    if (!l1 || l1.length < 8) l1 = `Oke, soal ${topic} — ${B.name}, kamu gimana pandangannya?`;
-    await logMsg(env, d.a, d.b, l1, 'goto', 'meeting');
+    let l1 = await aiSay(env, d.a, `Kamu dan ${B.name} (${B.role}) baru kumpul di ruang meeting soal "${topic}", CEO ada di situ. Buka rapatnya natural dengan gaya bicaramu sendiri, 1-2 kalimat.`);
+    if (!l1 || l1.length < 8) l1 = `Oke, semua udah kumpul. Soal ${topic} — ${B.name}, kamu mulai dulu gimana?`;
+    await logMsg(env, d.a, d.b, l1);
     await setStatus(env, d.a, 'bicara');
     d.last = l1;
     return true;
   }
-  if (step === 1) { // jawaban B sambil jalan ke ruang meeting
+  if (step === 2) { // B nanggep
     await setStatus(env, d.b, 'mengetik');
-    let l2 = await aiSay(env, d.b, `${A.name} (${A.role}) buka meeting soal "${topic}" dengan bilang: "${d.last}". Jawab natural sambil jalan ke ruang meeting, 1-2 kalimat, gaya bicaramu sendiri.`);
+    let l2 = await aiSay(env, d.b, `${A.name} (${A.role}) buka rapat soal "${topic}" dengan bilang: "${d.last}". Kamu udah di ruang meeting bareng dia dan CEO. Jawab natural, 1-2 kalimat, gaya bicaramu sendiri.`);
     if (!l2 || l2.length < 8) l2 = `Menurutku ${topic} perlu dibahas pelan-pelan nih. Aku ada beberapa ide.`;
-    await logMsg(env, d.b, d.a, l2, 'goto', 'meeting');
+    await logMsg(env, d.b, d.a, l2);
     await setStatus(env, d.b, 'bicara');
     d.last = l2;
     return true;
   }
-  if (step === 2 || step === 3) { // diskusi dua giliran di ruang meeting
-    const who = step === 2 ? d.a : d.b, other = step === 2 ? d.b : d.a;
+  if (step === 3 || step === 4) { // diskusi dua giliran, semua tetap di meja
+    const who = step === 3 ? d.a : d.b, other = step === 3 ? d.b : d.a;
     const P = persona(other);
     await setStatus(env, who, 'mengetik');
-    let line = await aiSay(env, who, `Kamu lagi meeting sama ${P.name} (${P.role}) soal "${topic}", CEO nyimak dari deket. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
+    let line = await aiSay(env, who, `Kamu lagi rapat sama ${P.name} (${P.role}) soal "${topic}", kalian berdua di meja meeting dan CEO nyimak. ${P.name} barusan bilang: "${d.last}". Tanggapi natural — setuju, nambahin ide, bercanda dikit, atau nanya balik. Jangan "siap/oke" doang. 1-2 kalimat.`);
     if (!line || line.length < 8) {
       const FL = ['Setuju nih. Kita jalanin dulu pelan-pelan aja, nanti dievaluasi lagi ya.', 'Btw aku rasa kita perlu data lebih banyak dulu, jangan buru-buru.', 'Hmm masuk akal juga tuh. Kalau gitu aku bantu siapin dari sisi aku ya.'];
       line = FL[Math.floor(Math.random() * FL.length)];
@@ -269,18 +278,21 @@ async function meetingStep(env, d, step) {
     await setStatus(env, who, 'bicara');
     return true;
   }
-  // step 4: penutup + status kembali normal
+  // step 5: penutup + semua boleh bubar
   await setStatus(env, d.a, 'mengetik');
-  let end = await aiSay(env, d.a, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
+  let end = await aiSay(env, d.a, `Rapat soal "${topic}" sama ${B.name} udah kelar. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
   if (!end || end.length < 8) {
     const FE = ['Oke, gitu aja dulu ya kesimpulannya. Kita balik kerja, lanjut nanti kalau ada update! 👍', 'Dah ya, kita angkat topik ini lagi pas udah ada data baru. Balik kerja dulu! 💪', 'Nah gitu, deal! Aku balik ke meja dulu ya, kalau ada yang mau ditambah chat aja.'];
     end = FE[Math.floor(Math.random() * FE.length)];
   }
   await logMsg(env, d.a, d.b, end);
   await setStatus(env, d.a, 'bicara');
-  await sleep(3000);
+  await sleep(4000);
   await setStatus(env, d.a, 'idle');
   await setStatus(env, d.b, 'idle');
+  // pesan bubar: karakter boleh kembali aktivitas biasa
+  await logMsg(env, d.a, d.a, '', 'release');
+  await logMsg(env, d.b, d.b, '', 'release');
   return null;
 }
 
