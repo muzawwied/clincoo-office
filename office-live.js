@@ -159,14 +159,15 @@
     const cand = w.POIS.filter((p) => p.act === 'METING' && p.floor === 0 && !taken(p))
       .sort((a, b) => (Math.hypot(a.sx + 11.5, a.sz + 14.6)) - (Math.hypot(b.sx + 11.5, b.sz + 14.6)));
     for (const p of cand.slice(0, 3)) {
+      const longTrip = c.pFloor !== 0; // dari lantai lain: kasih waktu lewat tangga
       interruptAct(c);
       const t0 = Date.now();
       while (Date.now() - t0 < 9000 && (c.st === 'SITOUT' || c.st === 'SITIN' || c.st === 'ACT')) await sleep(400);
       const pts = routeFor(c, { floor: p.floor, ax: p.ax, az: p.az });
       if (!pts) continue;
       c.poi = p; c.path = pts; c.st = 'WALK'; c.stT = 0; c.pendingAct = null; c.ghostT = 0;
-      const t1 = Date.now();
-      while (Date.now() - t1 < timeoutMs) {
+      const t1 = Date.now(); const budget = longTrip ? timeoutMs * 2.5 : timeoutMs;
+      while (Date.now() - t1 < budget) {
         if ((c.st === 'ACT' || c.st === 'SITIN') && c.poi === p) return true; // sudah duduk
         if (c.st !== 'WALK' && c.poi !== p) break;
         await sleep(400);
