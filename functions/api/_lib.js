@@ -331,3 +331,12 @@ export async function ghCommentIssue(env, n, body) {
 export async function ghCloseIssue(env, n) {
   return await gh(env, 'PATCH', '/repos/' + ghRepo(env) + '/issues/' + n, { state: 'closed' });
 }
+
+export async function ghList(env, kind) {
+  const path = kind === 'pr'
+    ? '/repos/' + ghRepo(env) + '/pulls?state=open&per_page=8'
+    : '/repos/' + ghRepo(env) + '/issues?state=open&per_page=8';
+  const j = await gh(env, 'GET', path);
+  if (!Array.isArray(j)) return null;
+  return j.filter((x) => kind !== 'issue' || !x.pull_request).map((x) => ({ n: x.number, t: x.title, url: x.html_url }));
+}
