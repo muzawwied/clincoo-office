@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, PLACE_WORDS } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, PLACE_WORDS } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -35,7 +35,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
       if (a !== b) {
         const P1 = persona(a), P2 = persona(b);
         await tgSend(token, chatId, `Siap, <b>${P1.name}</b> sama <b>${P2.name}</b> meeting soal <i>${topic}</i> di ruang meeting 📋 Lihat aksinya di vylonium.biz.id`);
-        waitUntil(runMeeting(env, a, b, topic).catch(() => {}));
+        await scheduleRun(env, 'meeting', { a, b, topic });
+        waitUntil(fetch(new URL(request.url).origin + '/api/director', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': env.ADMIN_KEY }, body: '{}'
+        }).catch(() => {}));
         return Response.json({ ok: true });
       }
     }
