@@ -283,3 +283,39 @@ async function meetingStep(env, d, step) {
   await setStatus(env, d.b, 'idle');
   return null;
 }
+
+// ===== INTEGRASI GITHUB: kerjaan nyata =====
+const GH_LABELS = { rafa: ['frontend'], dimas: ['backend'], sari: ['design', 'ui'], bagas: ['devops'] };
+function ghRepo(env) { return env.GITHUB_REPO || 'muzawwied/clincoo-office'; }
+async function gh(env, method, path, body) {
+  const tok = env.GITHUB_TOKEN;
+  if (!tok) return null;
+  try {
+    const r = await fetch('https://api.github.com' + path, {
+      method,
+      headers: { 'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'clincoo-office' },
+      body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(12000)
+    });
+    if (!r.ok) return null;
+    return method === 'GET' || method === 'POST' ? await r.json().catch(() => null) : true;
+  } catch (e) { return null; }
+}
+export async function ghCreateIssue(env, charId, title, body) {
+  const j = await gh(env, 'POST', '/repos/' + ghRepo(env) + '/issues', {
+    title, body, labels: GH_LABELS[charId] || []
+  });
+  return j && j.number ? { number: j.number, url: j.html_url } : null;
+}
+export async function ghGetPR(env, n) {
+  return await gh(env, 'GET', '/repos/' + ghRepo(env) + '/pulls/' + n);
+}
+export async function ghGetPRFiles(env, n) {
+  return await gh(env, 'GET', '/repos/' + ghRepo(env) + '/pulls/' + n + '/files?per_page=30');
+}
+export async function ghCommentIssue(env, n, body) {
+  const j = await gh(env, 'POST', '/repos/' + ghRepo(env) + '/issues/' + n + '/comments', { body });
+  return j && j.html_url ? { url: j.html_url } : null;
+}
+export async function ghCloseIssue(env, n) {
+  return await gh(env, 'PATCH', '/repos/' + ghRepo(env) + '/issues/' + n, { state: 'closed' });
+}
