@@ -75,11 +75,15 @@ export async function getBoard(env, since) {
 
 // [15 Okt] Model utama Gemini 3.6 Flash (permintaan CEO) dengan cascade model
 // aktif: kalau model utama ditolak (429/404/dst), otomatis coba model berikutnya.
-const GEMINI_MODEL_CASCADE = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3-flash-preview'];
+const GEMINI_MODEL_CASCADE = ['gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-flash-latest'];
+// [15 Okt] 1 karakter = 1 model. Default per karakter (bisa diubah dari Panel Admin
+// lewat setting model_<id>). CEO dulu pakai 3.6 Flash; sisanya menyusul satu per satu.
+const CHAR_DEFAULT_MODEL = { rafa: 'gemini-3.6-flash' };
 async function geminiChat(env, sys, user, charId) {
-  const key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
+  let key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
-  const mMain = (charId && await getSetting(env, 'model_' + charId)) || (await getSetting(env, 'gemini_model')) || GEMINI_MODEL_CASCADE[0];
+  if (!/^(AIza|AQ\.)/.test(key)) key = 'AQ.' + key; // prefiks 'AQ.' sering terpotong saat disimpan
+  const mMain = (charId && await getSetting(env, 'model_' + charId)) || (charId && CHAR_DEFAULT_MODEL[charId]) || (await getSetting(env, 'gemini_model')) || GEMINI_MODEL_CASCADE[0];
   const models = [mMain, ...GEMINI_MODEL_CASCADE.filter((m) => m !== mMain)];
   for (const model of models) {
     try {

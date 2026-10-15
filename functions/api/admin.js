@@ -32,11 +32,11 @@ export async function onRequestGet({ request, env }) {
     b.chat_id = chatMap[b.id] || null;
   }
 
-  const settingKeys = ['gemini_api_key', 'gemini_model', 'openrouter_api_key', 'openrouter_model'];
+  const settingKeys = ['gemini_api_key', 'gemini_model', 'openrouter_api_key', 'openrouter_model', ...Object.keys(PERSONAS).map((id) => 'model_' + id)];
   const settings = {};
   for (const k of settingKeys) {
     const dbV = await getSetting(env, k);
-    const envV = k.includes('gemini') ? (k === 'gemini_model' ? 'gemini-3.6-flash' : env.GEMINI_API_KEY) : (k === 'openrouter_model' ? 'cohere/north-mini-code:free' : env.OPENROUTER_API_KEY);
+    const envV = k.startsWith('model_') ? ({ model_rafa: 'gemini-3.6-flash' }[k] || 'gemini-3.6-flash') : k.includes('gemini') ? (k === 'gemini_model' ? 'gemini-3.6-flash' : env.GEMINI_API_KEY) : (k === 'openrouter_model' ? 'cohere/north-mini-code:free' : env.OPENROUTER_API_KEY);
     settings[k] = { set: !!dbV, hint: dbV ? '••••' + String(dbV).slice(-4) : null, default_hint: envV ? 'env: ••••' + String(envV).slice(-4) : 'env: belum ada', is_model: k.includes('model') };
   }
   return Response.json({ ok: true, bots, settings });
@@ -83,7 +83,7 @@ export async function onRequestPost({ request, env }) {
   }
   if (act === 'set_setting') {
     const k = String(body.k || '');
-    if (!['gemini_api_key', 'gemini_model', 'openrouter_api_key', 'openrouter_model'].includes(k)) return Response.json({ ok: false, error: 'kunci tidak dikenal' });
+    if (!['gemini_api_key', 'gemini_model', 'openrouter_api_key', 'openrouter_model'].includes(k) && !/^model_[a-z0-9_]{1,20}$/.test(k)) return Response.json({ ok: false, error: 'kunci tidak dikenal' });
     await setSetting(env, k, String(body.v || ''));
     return Response.json({ ok: true });
   }
