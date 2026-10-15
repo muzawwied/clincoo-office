@@ -31,8 +31,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Di grup ada 4 bot yang menerima pesan yang sama. Yang menjawab: bot yang disebut namanya;
     // kalau tidak ada nama, hanya Muzawwied (CEO). Bot lain diam supaya tidak 4x jawaban sama.
     const isGroup = msg.chat && (msg.chat.type === 'group' || msg.chat.type === 'supergroup');
-    const mentioned = [...new Set((text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/g) || []).map(resolveName))];
-    const isCmdForOther = /^(?:ke|kepada|ajak|dengan|sama|suruh(?:in)?|panggil(?:in)?|tolong\s+panggil)\s+(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/i.test(text) || /^@(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\s/i.test(text);
+    const mentioned = [...new Set((text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\b/g) || []).map(resolveName))];
+    const isCmdForOther = /^(?:ke|kepada|ajak|dengan|sama|suruh(?:in)?|panggil(?:in)?|tolong\s+panggil)\s+(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\b/i.test(text) || /^@(?:muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\s/i.test(text);
     if (isGroup && text && !text.startsWith('/') && !isCmdForOther) {
       const responder = mentioned.length ? mentioned[0] : 'rafa';
       if (responder !== c) return Response.json({ ok: true });
@@ -76,7 +76,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // ===== KERJAAAN NYATA: GitHub =====
-    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
+    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
     if (gi) {
       const who = resolveName(gi[1] || c);
       const title = gi[2].trim().slice(0, 300);
@@ -106,7 +106,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       await tgSend(token, chatId, `📋 <b>${kind === 'pr' ? 'PR terbuka' : 'Issue terbuka'}:</b>\n${lines}`);
       return Response.json({ ok: true });
     }
-    const gr = text.match(/^(?:suruh(?:in)?\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
+    const gr = text.match(/^(?:suruh(?:in)?\s+)?(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
     if (gr) {
       const who = resolveName(gr[1] || c);
       const n = Number(gr[2]);
@@ -209,7 +209,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // ===== PERINTAH: meeting/rapat nyata =====
     if (/rapat|meet(?:ing|in|t)|meating|metting/i.test(text) && text.length <= 140 && !text.includes('?')) {
       const uniq = [];
-      for (const n0 of (text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b/g) || [])) {
+      for (const n0 of (text.toLowerCase().match(/\b(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\b/g) || [])) {
         const n = resolveName(n0);
         if (!uniq.includes(n)) uniq.push(n);
       }
@@ -242,7 +242,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // ===== PERINTAH: panggil/suruh <nama> [ke <tempat>] =====
-    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
+    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
     if (cmd) {
       const target = resolveName(cmd[1]);
       let place = cmd[2] ? (PLACE_WORDS[cmd[2].toLowerCase()] || null) : 'kantor';
@@ -279,7 +279,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // pola ajak rekan: "ke <nama> [:] <topik>" / "@<nama> <topik>"
-    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\b[\s:,-]*(.*)$/i) || text.match(/^@(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas)\s+(.*)$/i);
+    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\b[\s:,-]*(.*)$/i) || text.match(/^@(muzawwied|vylonium|devconium|clincoo|rafa|dimas|sari|bagas|maya|raka|nadia|lina|joko|tini)\s+(.*)$/i);
     if (m && resolveName(m[1]) !== c) {
       const target = resolveName(m[1]);
       const topic = (m[2] || 'pekerjaan hari ini').trim();
