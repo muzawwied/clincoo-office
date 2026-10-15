@@ -58,7 +58,7 @@
     try { if (window.__OFFICE && window.__OFFICE.CHARS && window.__OFFICE.CHARS.length)
       return (W = { CHARS: window.__OFFICE.CHARS, STAIRS: window.__OFFICE.STAIRS, astar: window.__OFFICE.astar, FY: window.__OFFICE.FY }); } catch (e) {}
     try { if (typeof CHARS !== 'undefined' && CHARS && CHARS.length)
-      return (W = { CHARS, STAIRS: (typeof STAIRS !== 'undefined' ? STAIRS : null), astar: (typeof astar !== 'undefined' ? astar : null), FY: (typeof FY !== 'undefined' ? FY : null) }); } catch (e) {}
+      return (W = { CHARS, POIS: (typeof POIS !== 'undefined' ? POIS : null), STAIRS: (typeof STAIRS !== 'undefined' ? STAIRS : null), astar: (typeof astar !== 'undefined' ? astar : null), FY: (typeof FY !== 'undefined' ? FY : null) }); } catch (e) {}
     return null;
   };
   const jam = (ts) => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -152,6 +152,30 @@
     return false;
   }
 
+  // duduk di kursi ruang meeting: pakai POI engine supaya animasi duduk asli
+  async function sitAtMeeting(c, timeoutMs) {
+    const w = world(); if (!w || !w.POIS) return false;
+    const taken = (p) => w.CHARS.some((x) => x !== c && (x.poi === p || x.lastPoi === p && x.st !== 'WAIT'));
+    const cand = w.POIS.filter((p) => p.act === 'METING' && p.floor === 0 && !taken(p))
+      .sort((a, b) => (Math.hypot(a.sx + 11.5, a.sz + 14.6)) - (Math.hypot(b.sx + 11.5, b.sz + 14.6)));
+    for (const p of cand.slice(0, 3)) {
+      interruptAct(c);
+      const t0 = Date.now();
+      while (Date.now() - t0 < 9000 && (c.st === 'SITOUT' || c.st === 'SITIN' || c.st === 'ACT')) await sleep(400);
+      const pts = routeFor(c, { floor: p.floor, ax: p.ax, az: p.az });
+      if (!pts) continue;
+      c.poi = p; c.path = pts; c.st = 'WALK'; c.stT = 0; c.pendingAct = null; c.ghostT = 0;
+      const t1 = Date.now();
+      while (Date.now() - t1 < timeoutMs) {
+        if ((c.st === 'ACT' || c.st === 'SITIN') && c.poi === p) return true; // sudah duduk
+        if (c.st !== 'WALK' && c.poi !== p) break;
+        await sleep(400);
+      }
+      if ((c.st === 'ACT' || c.st === 'SITIN') && c.poi === p) return true;
+    }
+    return false;
+  }
+
   function faceTo(c, target) {
     const a = pos(c), b = pos(target);
     c.yawNow = Math.atan2(b.x - a.x, b.z - a.z);
@@ -191,23 +215,29 @@
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
-      let place = PLACES[m.place] || DESK[A.idx];
-      if (m.place === 'meeting') {
-        const MOFF = { 0: -1.7, 1: 1.7, 2: -0.6, 3: 0.6, 10: 0 }; // rafa, dimas, sari, bagas, CEO
-        place = { f: place.f, x: place.x + (MOFF[A.idx] ?? (A.idx % 2 ? 1.4 : -1.4)), z: place.z }; // tiap orang punya posisi sendiri di sekeliling meja
+      if (m.place === 'meeting') { // RAPAT: duduk di kursi ruang meeting
+        const ok = await sitAtMeeting(A, 20000);
+        if (!ok) await walkToPoint(A, PLACES.meeting, 20000); // fallback: berdiri dekat meja
+        if (m.text) addFeed(m);
+        if (m.kind === 'goto' && m.text) await speak(A, m.text);
+        A.waitDur = Math.max(savedWait, 240);
+        return;
       }
+      const place = PLACES[m.place] || DESK[A.idx];
       await walkToPoint(A, place, 20000);
       if (m.text) addFeed(m);
       if (m.kind === 'goto' && m.text) { await speak(A, m.text); A.yawNow = 0; }
-      // saat rapat: dikunci lama supaya gak jalan-jalan di tengah meeting
-      A.waitDur = Math.max(savedWait, m.place === 'meeting' ? 240 : 40);
+      A.waitDur = Math.max(savedWait, 40);
       return;
     }
-    if (m.kind === 'release') { // rapat bubar: boleh balik aktivitas
+    if (m.kind === 'release') { // rapat bubar: berdiri lalu balik aktivitas
+      interruptAct(A);
       A.waitDur = 6;
       return;
     }
-    if (B && B !== A) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
+    const seated = (x) => x.st === 'ACT' || x.st === 'SITIN' || x.st === 'SITOUT';
+    if (B && B !== A && !seated(A)) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
+    else if (B && B !== A) faceTo(A, B);
     addFeed(m);
     await speak(A, m.text);
     A.waitDur = savedWait;
