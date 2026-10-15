@@ -101,10 +101,20 @@ export async function getBoard(env, since) {
 
 // [15 Okt] Model utama Gemini 3.6 Flash (permintaan CEO) dengan cascade model
 // aktif: kalau model utama ditolak (429/404/dst), otomatis coba model berikutnya.
-const GEMINI_MODEL_CASCADE = ['gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-flash-latest'];
+const GEMINI_MODEL_CASCADE = ['gemini-3.6-flash', 'gemini-3-flash-preview', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
 // [15 Okt] 1 karakter = 1 model. Default per karakter (bisa diubah dari Panel Admin
 // lewat setting model_<id>). CEO dulu pakai 3.6 Flash; sisanya menyusul satu per satu.
-const CHAR_DEFAULT_MODEL = { rafa: 'gemini-3.6-flash' };
+// Kuota Gemini dihitung PER MODEL, jadi karakter disebar ke model berbeda agar tidak saling berebut kuota.
+// (Diuji 15 Okt: 3.6-flash, 3-flash-preview, 3.5-flash-lite lolos 6/6 permintaan beruntun; 3.5-flash & 3.1-flash-lite sering 429/503.)
+// CEO tetap di 3.6 Flash sesuai arahan pemilik. Bisa diubah per karakter di Panel Admin (setting model_<id>).
+const CHAR_DEFAULT_MODEL = {
+  rafa: 'gemini-3.6-flash',            // Muzawwied (CEO)
+  dimas: 'gemini-3-flash-preview',     // Vylonium
+  sari: 'gemini-3.5-flash-lite',       // Devconium
+  bagas: 'gemini-3-flash-preview',     // Clincoo
+  maya: 'gemini-3.5-flash-lite', raka: 'gemini-3.5-flash-lite', nadia: 'gemini-3.5-flash-lite',
+  lina: 'gemini-3.5-flash-lite', joko: 'gemini-3.5-flash-lite', tini: 'gemini-3.5-flash-lite'
+};
 async function geminiChat(env, sys, user, charId) {
   let key = (await getSetting(env, 'gemini_api_key')) || env.GEMINI_API_KEY;
   if (!key) return null;
