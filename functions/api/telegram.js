@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const token = env['CHAR_' + c.toUpperCase() + '_TOKEN'];
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, PLACE_WORDS } = await import('./_lib.js');
+    const { ensureSchema, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS } = await import('./_lib.js');
     await ensureSchema(env);
     const P = persona(c);
     if (!P) return Response.json({ ok: false }, { status: 404 });
@@ -34,6 +34,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const topic = tm ? tm[1].trim().slice(0, 200) : 'evaluasi kerja minggu ini';
       if (a !== b) {
         const P1 = persona(a), P2 = persona(b);
+        if (await hasPendingRun(env)) {
+          await tgSend(token, chatId, `Masih ada meeting lain yang jalan nih 🕐 Aku nyusul setelah itu ya — pantau aja di vylonium.biz.id`);
+          return Response.json({ ok: true });
+        }
         await tgSend(token, chatId, `Siap, <b>${P1.name}</b> sama <b>${P2.name}</b> meeting soal <i>${topic}</i> di ruang meeting 📋 Lihat aksinya di vylonium.biz.id`);
         await scheduleRun(env, 'meeting', { a, b, topic });
         waitUntil(fetch(new URL(request.url).origin + '/api/director', {
