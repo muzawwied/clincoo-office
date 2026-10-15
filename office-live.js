@@ -192,11 +192,19 @@
     A.waitDur = 1e9;
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
       let place = PLACES[m.place] || DESK[A.idx];
-      if (m.place === 'meeting') place = { f: place.f, x: place.x + (A.idx % 2 ? 1.4 : -1.4), z: place.z }; // berdiri berdampingan, bukan numpuk
+      if (m.place === 'meeting') {
+        const MOFF = { 0: -1.7, 1: 1.7, 2: -0.6, 3: 0.6, 10: 0 }; // rafa, dimas, sari, bagas, CEO
+        place = { f: place.f, x: place.x + (MOFF[A.idx] ?? (A.idx % 2 ? 1.4 : -1.4)), z: place.z }; // tiap orang punya posisi sendiri di sekeliling meja
+      }
       await walkToPoint(A, place, 20000);
-      addFeed(m);
-      if (m.kind === 'goto') { await speak(A, m.text); A.yawNow = 0; }
-      A.waitDur = Math.max(savedWait, 40); // tinggal sebentar di tempat, biar gak kabur duluan
+      if (m.text) addFeed(m);
+      if (m.kind === 'goto' && m.text) { await speak(A, m.text); A.yawNow = 0; }
+      // saat rapat: dikunci lama supaya gak jalan-jalan di tengah meeting
+      A.waitDur = Math.max(savedWait, m.place === 'meeting' ? 240 : 40);
+      return;
+    }
+    if (m.kind === 'release') { // rapat bubar: boleh balik aktivitas
+      A.waitDur = 6;
       return;
     }
     if (B && B !== A) { B.waitDur = 1e9; await walkTo(A, B, 15000); faceTo(A, B); }
