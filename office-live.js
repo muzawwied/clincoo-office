@@ -3,7 +3,7 @@
    lalu papan namanya melebar jadi bubble dengan efek mengetik.
    Lapisan aditif: tidak mengubah logika 3D induk. */
 (() => {
-  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
+  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, nadia: 6, joko: 7, tini: 9, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pos = (c) => c.player.position;
   const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
@@ -17,7 +17,8 @@
     nongkrong: { f: 0, x: -26.0, z: 1.7 },
     nonton:    { f: 0, x: 22.95, z: -2.9 },
     tidur:     { f: 0, x: 12.25, z: 8.0 },
-    meeting:   { f: 0, x: -10.5, z: -12.4 }
+    meeting:   { f: 0, x: -10.5, z: -12.4 },
+    sakit:     { f: 0, x: 12.25, z: 9.5 }
   }; // z -12.4: sisi bebas meja (kursi di z -14.6, meja ~-13.5)
   // zona kerja per karakter (index CHARS) utk "ke meja"
   const DESK = { 0: { f: 0, x: -8, z: 2 }, 1: { f: 0, x: -8, z: 2 }, 2: { f: 0, x: 3, z: -13 }, 3: { f: 0, x: 14, z: -13 } };
@@ -34,8 +35,8 @@
     background:rgba(15,18,25,.55);border:1px solid rgba(255,255,255,.16);cursor:pointer;backdrop-filter:blur(8px);touch-action:manipulation}
   #ol-feedBtn:active{transform:scale(.9);filter:brightness(1.15)}
   #ol-feedBtn svg{width:20px;height:20px;display:block}
-  #ol-feedBtn.ol-new::after{content:'';position:absolute;top:4px;right:4px;width:11px;height:11px;border-radius:50%;
-    background:#f43f5e;border:2px solid #0f172a}
+  #ol-feedBtn.ol-new::after{content:'';position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;
+    background:#f43f5e;border:1px solid #0f172a}
   #ol-feed{position:fixed;top:calc(64px + var(--st,12px));right:calc(12px + var(--sr,12px));z-index:61;width:min(80vw,282px);max-height:60vh;overflow:auto;padding:12px;display:none;
     background:rgba(15,18,25,.85);border:1px solid rgba(255,255,255,.12);border-radius:16px;backdrop-filter:blur(10px)}
   #ol-feed.on{display:block}
@@ -52,6 +53,8 @@
   document.body.append(feedBtn, feed);
 
   let lastId = 0, queue = [], playing = false, statusNow = {}, loaded = false;
+  // PATROL REAL: cek situs/bot/GitHub/DB nyata tiap 3 menit saat kantor dibuka
+  setInterval(() => { fetch('/api/patrol', { method: 'POST' }).catch(() => {}); }, 180000);
   let W = null;
   const world = () => {
     if (W) return W;
@@ -235,6 +238,14 @@
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
     if (m.kind === 'goto' || m.kind === 'ceogoto') {
+      if (m.place === 'sakit') { // KARAKTER SAKIT: beristirahat di ruang sakit (real error)
+        const w0 = world();
+        const bed = w0 && w0.POIS ? w0.POIS.filter((p) => p.act === 'TIDUR' && p.floor === 0 && !w0.CHARS.some((x) => x !== A && (x.poi === p || x.lastPoi === p && x.st !== 'WAIT')))[0] : null;
+        if (bed) { await sitAtPoi(A, bed, 20000); } else { await walkToPoint(A, PLACES.sakit, 20000); }
+        if (m.text) { addFeed(m); if (m.kind === 'goto') await speak(A, m.text); }
+        A.waitDur = Math.max(savedWait, 240);
+        return;
+      }
       if (m.place === 'meeting') { // RAPAT: CEO duduk di ujung meja, karyawan di sisi
         const isCeo = m.from_c === 'user';
         const ok = await sitAtMeeting(A, 20000, isCeo);
