@@ -9,6 +9,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   await ensureSchema(env);
   waitUntil((async () => {
     try {
+      await new Promise(r => setTimeout(r, 7000)); // jeda antar langkah: beri napas rate limit AI
       const more = await runDirectorStep(env);
       if (more) {
         await fetch(url.origin + '/api/director', {
