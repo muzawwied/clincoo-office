@@ -115,7 +115,16 @@ export async function onRequestPost({ request, env, waitUntil }) {
       let a = uniq[0] || c;               // tanpa nama: bot ini yang rapat
       let b = uniq[1] || (a !== c ? c : ['rafa','dimas','sari','bagas'].filter(x => x !== a)[Math.floor(Math.random() * 3)]);
       const tm = text.match(/(?:soal|tentang|ttg|about)\s+(.+)$/i);
-      const topic = tm ? tm[1].trim().slice(0, 200) : 'evaluasi kerja minggu ini';
+      const topic = tm ? tm[1].trim().slice(0, 200) : [
+        'fitur baru buat Clincoo Office',
+        'cara biar Clincoo makin dikenal orang',
+        'performa Clincoo di HP kelas menengah',
+        'desain landing page Clincoo',
+        'bug paling sering muncul di Clincoo dan cara ngatasinnya',
+        'roadmap Clincoo bulan depan',
+        'biar onboarding Clincoo makin gampang',
+        'ide fitur sosial buat Clincoo Office'
+      ][Math.floor(Math.random() * 8)];
       if (a !== b) {
         const P1 = persona(a), P2 = persona(b);
         if (await hasPendingRun(env)) {
@@ -182,12 +191,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // obrolan langsung dengan sang karakter
     await setStatus(env, c, 'mengetik');
     const reply = await aiChatRetry(env, c, `CEO kamu (pemilik Clincoo, panggil saja "Boss") ngobrol denganmu lewat Telegram dan berkata: "${text}". Balas sebagai ${P.name} dengan hormat tapi tetap santai.`);
-    const FALL = [
-      'Aduh, sinyal ke otakku lagi garing 😅 boleh ulangi, Boss?',
-      'Maaf Boss, barusan kepotot — ulangi sekali lagi ya!',
-      'Hmm gagal nangkep tuh 😅 sekali lagi boleh?'
-    ];
-    const out = reply || FALL[Math.floor(Math.random() * FALL.length)];
+    if (!reply) {
+      // AI gangguan: kabar jujur, bukan obrolan palsu — dan jangan kotorkan papan kantor
+      await tgSend(token, chatId, '⚠️ Otak AI ' + P.name + ' lagi gangguan, pesanmu belum keproses. Coba kirim lagi sebentar ya, Boss.');
+      return Response.json({ ok: true });
+    }
+    const out = reply;
     await logMsg(env, c, 'user', out);
     await setStatus(env, c, 'idle');
     await tgSend(token, chatId, out);
