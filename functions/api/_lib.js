@@ -205,6 +205,11 @@ function dia_atau_kamu(n) { return n; }
 // Cloudflare memotong background task ~30 detik; tiap langkah di sini
 // dibatasi pendek lalu di-chain lewat panggilan mandiri /api/director.
 
+export async function hasPendingRun(env) {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM office_run').first();
+  return (row && row.n) > 0;
+}
+
 export async function scheduleRun(env, kind, data) {
   const r = await env.DB.prepare('INSERT INTO office_run (kind, data, step, ts) VALUES (?, ?, 0, ?)')
     .bind(kind, JSON.stringify(data || {}), Date.now()).run();
@@ -267,7 +272,10 @@ async function meetingStep(env, d, step) {
   // step 4: penutup + status kembali normal
   await setStatus(env, d.a, 'mengetik');
   let end = await aiSay(env, d.a, `Meeting soal "${topic}" sama ${B.name} udah selesai. Tutup natural — kesimpulan singkat atau ajakan balik kerja. 1 kalimat, gaya bicaramu sendiri.`);
-  if (!end || end.length < 8) end = 'Oke, gitu aja dulu ya kesimpulannya. Kita balik kerja, lanjut nanti kalau ada update! 👍';
+  if (!end || end.length < 8) {
+    const FE = ['Oke, gitu aja dulu ya kesimpulannya. Kita balik kerja, lanjut nanti kalau ada update! 👍', 'Dah ya, kita angkat topik ini lagi pas udah ada data baru. Balik kerja dulu! 💪', 'Nah gitu, deal! Aku balik ke meja dulu ya, kalau ada yang mau ditambah chat aja.'];
+    end = FE[Math.floor(Math.random() * FE.length)];
+  }
   await logMsg(env, d.a, d.b, end);
   await setStatus(env, d.a, 'bicara');
   await sleep(3000);
