@@ -1132,7 +1132,7 @@ const ROLES = [
   {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:WK}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:WK},
   {t:'Dokter', doctor:true, shift:[[7, 18]]}, {t:'Customer Service', cs:true, shift:[[8.5, 12], [13, 17]]},
   {t:'Satpam', guard:true, shift:[[7, 19]]}, {t:'Kebersihan', cleaner:true, shift:[[6.5, 15]]},
-  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0.1, shift:WK}
+  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0.1, shift:[[0, 24]]}, // CEO selalu on: mayoritas ngetik di kursi komputernya
 ];
 const DOCROOM = {TYPE:1, POST:1, BELAJAR:1, DUDUK:1, NGOPI:1, SIKAT:1, GANTI:1, TIDUR:1, RACIK:1, PERIKSA:1};
 const inInfirmary = p => p.floor === 2 && p.sx >= 2 && p.sx <= 14 && p.sz >= -9 && p.sz <= 8;
