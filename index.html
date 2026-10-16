@@ -330,10 +330,10 @@ const OUTFITS = [
 ];
 const CAS = {m:[0, 1, 3, 5, 6, 8, 13, 14], f:[2, 4, 7, 15, 16, 9]}, PJ = {m:10, f:11};
 const LOOKS = [
-  {name:'Muzawwied', g:'m', skin:0xf0c8a0, accent:0xd4d4d8, outfit:0,  hoodUp:true,  hair:{c:0x1b1b1b, s:'short'}},
-  {name:'Vylonium',  g:'m', skin:0xc68642, accent:0x38bdf8, outfit:6,  hoodUp:false, hair:{c:0x2b2118, s:'short'}},
-  {name:'Devconium', g:'f', skin:0xe0ac69, accent:0xf472b6, outfit:7,  hoodUp:false, hair:{c:0x2a1a12, s:'long'}},
-  {name:'Clincoo',   g:'m', skin:0x8d5524, accent:0xfbbf24, outfit:3,  hoodUp:true,  hair:{c:0x1f1a17, s:'short'}},
+  {name:'Rafa',     g:'m', skin:0xf0c8a0, accent:0xd4d4d8, outfit:0,  hoodUp:true,  hair:{c:0x1b1b1b, s:'short'}},
+  {name:'Dimas',    g:'m', skin:0xc68642, accent:0x38bdf8, outfit:6,  hoodUp:false, hair:{c:0x2b2118, s:'short'}},
+  {name:'Sari',     g:'f', skin:0xe0ac69, accent:0xf472b6, outfit:7,  hoodUp:false, hair:{c:0x2a1a12, s:'long'}},
+  {name:'Bagas',    g:'m', skin:0x8d5524, accent:0xfbbf24, outfit:3,  hoodUp:true,  hair:{c:0x1f1a17, s:'short'}},
   {name:'Maya',     g:'f', skin:0xffdbac, accent:0x34d399, outfit:16, hoodUp:false, hair:{c:0x6b3f23, s:'bun'}},
   {name:'Raka',     g:'m', skin:0xa86b3c, accent:0xa78bfa, outfit:14, hoodUp:false, hair:{c:0x111111, s:'short'}},
   {name:'dr. Nadia', g:'f', skin:0xe8b890, accent:0x38bdf8, outfit:12, hoodUp:false, hair:{c:0x1a1210, s:'pony'}, work:12},
@@ -796,7 +796,7 @@ function updateAll(dt, t){
   updFx(dt);
 }
 let capLayer = null;
-function saveNames(){ try { localStorage.setItem('office3d_names_v2', JSON.stringify(CHARS.map(c => c.name))); } catch(e){} }
+function saveNames(){ try { localStorage.setItem('office3d_names', JSON.stringify(CHARS.map(c => c.name))); } catch(e){} }
 function renameChar(c){
   if(c.editing) return; c.editing = true; const el = c.cap, inp = document.createElement('input');
   inp.value = c.name; inp.maxLength = 14;
@@ -810,7 +810,7 @@ function renameChar(c){
 function makeChars(){
   capLayer = document.createElement('div'); capLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden';
   document.body.appendChild(capLayer);
-  let saved = null; try { saved = JSON.parse(localStorage.getItem('office3d_names_v2') || 'null'); } catch(e){}
+  let saved = null; try { saved = JSON.parse(localStorage.getItem('office3d_names') || 'null'); } catch(e){}
   const used = [];
   LOOKS.forEach((lk, i) => {
     const root = createTycoon(lk); scene.add(root);
@@ -825,7 +825,7 @@ function makeChars(){
     capLayer.appendChild(el); c.cap = el;
     let p = null; for(let k = 0; k < 80; k++){ const q = POIS[Math.floor(Math.random() * POIS.length)]; if(used.every(u => u.floor !== q.floor || Math.hypot(u.ax - q.ax, u.az - q.az) > 3)){ p = q; break; } }
     p = p || POIS[0]; used.push(p);
-    if(c.role.doctor && c.role.post) p = c.role.post; else if(onShift(c.role, gameHour()) && c.role.post) p = c.role.post;
+    if(c.role.post) p = c.role.post; // spawn di posisi kerja: CEO di kursi komputernya
     root.position.set(p.ax, FY[p.floor], p.az); c.pFloor = p.floor; c.floorY = FY[p.floor]; root.rotation.y = c.yawNow;
     CHARS.push(c); if(gameHour() < 5 || gameHour() >= 22.2) sleepAt(c, i);
   });
@@ -1191,6 +1191,7 @@ function shiftAct(c, h){
 }
 function poiList(c, act){
   const R = c.role;
+  if (c.idx === 10 && act === 'DUDUK') return []; // CEO: jangan duduk di kursi tamu / sofa
   if(act === 'POST') return c.post && !isTaken(c.post) ? [c.post] : [];
   if(act === 'PATROLI'){ const pl = POIS.filter(p => p.act === 'PATROLI').sort((a, b) => a.ord - b.ord); return pl.length ? [pl[c.patI % pl.length]] : []; }
   let L = POIS.filter(p => p.act === act && !isTaken(p) && (p.postOf === undefined || p.postOf === c.idx));
@@ -2830,6 +2831,6 @@ window.__initApp = init;
 })();
 
 </script>
-<script src="office-live.js?v=20261016e" defer></script>
+<script src="office-live.js?v=20261016f" defer></script>
 </body>
 </html>
