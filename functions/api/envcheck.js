@@ -6,10 +6,9 @@ export async function onRequestGet({ request, env }) {
   const out = { ok: true, env_keys: Object.keys(env).sort() };
   // kesehatan Gemini: status HTTP + pesan error singkat (tanpa kunci)
   if (env.GEMINI_API_KEY) {
-    const gk = /^(AIza|AQ\.)/.test(env.GEMINI_API_KEY) ? env.GEMINI_API_KEY : 'AQ.' + env.GEMINI_API_KEY;
-    const model = 'gemini-3.6-flash';
+    const model = 'gemini-flash-latest';
     try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + gk, {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + env.GEMINI_API_KEY, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(9000),
         body: JSON.stringify({ contents: [{ parts: [{ text: 'balas: ok' }] }] })
       });
@@ -31,5 +30,17 @@ export async function onRequestGet({ request, env }) {
       } catch (e) { out.openrouter.tests.push({ model, http: 0, ok: false, err: String(e.message || e).slice(0, 100) }); }
     }
   }
+  // kesehatan 9Router (kalau dikonfigurasi): tes completion kecil, status saja
+  const nUrl = await (await import('./_lib.js')).getSetting(env, 'nine_router_url').catch(() => null);
+  if (nUrl) {
+    try {
+      const { getSetting: gs } = await import('./_lib.js');
+      const nKey = (await gs(env, 'nine_router_key')) || env.NINE_ROUTER_KEY || '';
+      const u = String(nUrl).replace(/\/+$/, '') + (String(nUrl).includes('/chat/completions') ? '' : '/v1/chat/completions');
+      const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(nKey ? { 'Authorization': 'Bearer ' + nKey } : {}) }, signal: AbortSignal.timeout(10000), body: JSON.stringify({ model: 'auto', max_tokens: 20, messages: [{ role: 'user', content: 'balas: ok' }] }) });
+      const j = await r.json().catch(() => ({}));
+      out.nine_router = { http: r.status, ok: !!((j.choices || [])[0] || {}).message, err: j.error ? String(j.error.message || '').slice(0, 100) : null };
+    } catch (e) { out.nine_router = { http: 0, ok: false, err: String(e.message || e).slice(0, 100) }; }
+  } else out.nine_router = { configured: false };
   return Response.json(out);
 }
