@@ -199,9 +199,17 @@ export async function onRequestPost({ request, env, waitUntil }) {
       return Response.json({ ok: true });
     }
 
-    // obrolan langsung dengan sang karakter
+    // obrolan langsung dengan sang karakter — DENGAN MEMORI NYATA dari papan + aturan anti-halusinasi
     await setStatus(env, c, 'mengetik');
-    const reply = await aiChatRetry(env, c, `CEO kamu (pemilik Clincoo, panggil saja "Boss") ngobrol denganmu lewat Telegram dan berkata: "${text}". Balas sebagai ${P.name} dengan hormat tapi tetap santai.`);
+    let ctx = '';
+    try {
+      const h = await env.DB.prepare('SELECT from_c, text FROM office_msg WHERE (from_c = ?1 OR to_c = ?1) AND (from_c = \'user\' OR to_c = \'user\') AND text != \'\' ORDER BY id DESC LIMIT 6').bind(c).all();
+      ctx = (h.results || []).reverse().map(r => (r.from_c === 'user' ? 'Boss: ' : 'Kamu: ') + String(r.text).slice(0, 140)).join('\n');
+    } catch (e) {}
+    const reply = await aiChatRetry(env, c, `Riwayat obrolanmu dengan Boss (terbaru di bawah):
+${ctx}
+
+Boss barusan berkata: "${text}". Balas sebagai ${P.name} (${P.role}) dengan hormat tapi santai. PENTING, JANGAN LANGGAR: (a) Jangan pernah mengklaim pekerjaan/hasil/cek sudah selesai kalau kamu TIDAK benar-benar melakukannya — kalau Boss minta hasil dan belum ada hasil nyata, jujur bilang belum ada hasil, lalu tawarkan langkah nyata berikutnya. (b) Jangan bilang "lagi di-scan/di-cek/di-proses" kalau tidak ada proses beneran yang jalan. (c) Jangan minta Boss yang kirim hasil/link/file — itu tugasmu. (d) Data yang benar-benar ada di sistem hanya yang ada di FAKTA NYATA — kalau Boss minta data yang tidak ada di sana, jujur bilang datanya belum ada, dan sebut apa yang bisa kamu cek nyata.`);
     if (!reply) {
       // AI gangguan: kabar jujur, bukan obrolan palsu — dan jangan kotorkan papan kantor
       await tgSend(token, chatId, '⚠️ Otak AI ' + P.name + ' lagi gangguan, pesanmu belum keproses. Coba kirim lagi sebentar ya, Boss.');
