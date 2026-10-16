@@ -95,6 +95,24 @@ async function geminiChat(env, sys, user, charId) {
   return null;
 }
 
+// Workers AI (Cloudflare): GRATIS — 10.000 neuron/hari, token & account sudah ada di env.
+// Setting per karakter: cf_model_<karakter>; global: cf_model. Default: Llama 3.3 70B.
+async function workersAiChat(env, sys, user, charId) {
+  const acc = env.CLOUDFLARE_ACCOUNT_ID, tok = env.CLOUDFLARE_API_TOKEN;
+  if (!acc || !tok) return null;
+  try {
+    const model = (charId && await getSetting(env, 'cf_model_' + charId)) || (await getSetting(env, 'cf_model')) || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+    const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/ai/run/' + model, {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({ max_tokens: 300, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] })
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const t = (j && j.result && (j.result.response || j.result.message)) || null;
+    return t ? String(t).trim() : null;
+  } catch (e) { return null; }
+}
+
 // 9Router: gateway AI self-hosted (OpenAI-compatible) — 24/7 kalau di-host di VPS.
 // Setting: nine_router_url (wajib, mis. https://vps-kamu/ ), nine_router_key (opsional),
 // nine_router_model (opsional, default 'auto' = biarkan 9router milih fallback terbaik),
@@ -143,6 +161,7 @@ export async function aiSay(env, charId, userPrompt) {
   const sys = p.sys + ' Saat menyebut pekerjaan/web/deploy, hanya nyatakan yang benar-benar terjadi di papan kantor atau hasil perintahmu; kalau belum dicek bilang belum dicek. Kamu sedang di kantor 3D Clincoo Office. Balasanmu ditampilkan sebagai obrolan singkat di papan nama. Tulis seperti orang beneran ngobrol di kantor: singkat, santai, natural, boleh bahasa gaul. JANGAN formal/kaku, JANGAN pakai kata "siap", JANGAN menyebut bahwa kamu AI.';
   let t = await nineRouterChat(env, sys, userPrompt, charId);
   if (!t) t = await geminiChat(env, sys, userPrompt, charId);
+  if (!t) t = await workersAiChat(env, sys, userPrompt, charId); // fallback gratis CF
   if (!t) t = await openrouterChat(env, sys, userPrompt);
   return t || null;
 }
