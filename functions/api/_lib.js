@@ -95,6 +95,23 @@ async function geminiChat(env, sys, user, charId) {
   return null;
 }
 
+// Groq: API key gratis, cepat & murah. Setting: groq_api_key, per karakter groq_model_<id>.
+async function groqChat(env, sys, user, charId) {
+  const key = (await getSetting(env, 'groq_api_key')) || env.GROQ_API_KEY;
+  if (!key) return null;
+  try {
+    const model = (charId && await getSetting(env, 'groq_model_' + charId)) || (await getSetting(env, 'groq_model')) || 'openai/gpt-oss-120b';
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({ model, max_tokens: 300, temperature: 0.8, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] })
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const t = ((j.choices || [])[0] || {}).message || {};
+    return t.content ? String(t.content).trim() : null;
+  } catch (e) { return null; }
+}
+
 // Workers AI (Cloudflare): GRATIS — 10.000 neuron/hari, token & account sudah ada di env.
 // Setting per karakter: cf_model_<karakter>; global: cf_model. Default: Llama 3.3 70B.
 async function workersAiChat(env, sys, user, charId) {
@@ -155,15 +172,57 @@ async function openrouterChat(env, sys, user) {
   return null;
 }
 
-export async function aiSay(env, charId, userPrompt) {
+export // 1 KARAKTER 1 MODEL AI — beda-beda sesuai kemampuan perannya, semua jalur gratis:
+//   rafa (frontend)  : Groq gpt-oss-120b        — otak paling kuat utk kerja frontend
+//   dimas (developer): Groq qwen3.8-27b         — model coder, ngobrol paling manusiawi
+//   bagas (devops)   : CF llama-3.3-70b         — stabil urus server & backend
+//   sari (desainer)  : CF mistral-small-3.1     — kreatif utk UI/UX
+// Tanpa fallback nyasar: kalau otaknya gangguan, karakter lapor jujur, bukan pura-pura.
+// Override via setting: ai_provider_<id> (groq|gemini|cf|or|nine) dan model per karakter.
+const CHAR_AI = {
+  rafa:  { provider: 'groq', model: 'openai/gpt-oss-120b' },
+  dimas: { provider: 'groq', model: 'qwen/qwen3.8-27b' },
+  bagas: { provider: 'cf',   model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
+  sari:  { provider: 'cf',   model: '@cf/mistralai/mistral-small-3.1-24b-instruct' }
+};
+
+// FAKTA NYATA untuk prompt (cache 60 detik): karakter WAJIB bicara berdasarkan data ini.
+let _facts = { t: 0, s: '' };
+async function liveFacts(env) {
+  if (Date.now() - _facts.t < 60000 && _facts.s) return _facts.s;
+  const facts = [];
+  try {
+    const base = env.CF_PAGES_URL || 'https://clincoo-office.pages.dev';
+    const r = await fetch(base + '/api/board?since=9999999999', { signal: AbortSignal.timeout(6000) });
+    facts.push('Web Clincoo: HTTP ' + r.status + (r.status === 200 ? ' (hidup)' : ' (bermasalah)'));
+  } catch (e) { facts.push('Web Clincoo: gagal dicek'); }
+  if (env.GITHUB_TOKEN && env.GITHUB_REPO) {
+    try {
+      const H = { 'Authorization': 'Bearer ' + env.GITHUB_TOKEN, 'User-Agent': 'clincoo-office' };
+      const r = await fetch('https://api.github.com/repos/' + env.GITHUB_REPO + '/issues?state=open&per_page=5', { headers: H, signal: AbortSignal.timeout(7000) });
+      const is = await r.json();
+      if (Array.isArray(is)) {
+        const real = is.filter((i) => !i.pull_request);
+        facts.push('Repo ' + env.GITHUB_REPO + ': ' + real.length + ' issue terbuka' + (real[0] ? ', terbaru #' + real[0].number + ' "' + String(real[0].title).slice(0, 60) + '"' : ''));
+      }
+    } catch (e) {}
+  }
+  const s = 'FAKTA NYATA SAAT INI: ' + (facts.join(' | ') || 'belum ada data') + '. ';
+  _facts = { t: Date.now(), s };
+  return s;
+}
+
+async function aiSay(env, charId, userPrompt) {
   const p = persona(charId);
   if (!p) return null;
-  const sys = p.sys + ' Saat menyebut pekerjaan/web/deploy, hanya nyatakan yang benar-benar terjadi di papan kantor atau hasil perintahmu; kalau belum dicek bilang belum dicek. Kamu sedang di kantor 3D Clincoo Office. Balasanmu ditampilkan sebagai obrolan singkat di papan nama. Tulis seperti orang beneran ngobrol di kantor: singkat, santai, natural, boleh bahasa gaul. JANGAN formal/kaku, JANGAN pakai kata "siap", JANGAN menyebut bahwa kamu AI.';
-  let t = await nineRouterChat(env, sys, userPrompt, charId);
-  if (!t) t = await geminiChat(env, sys, userPrompt, charId);
-  if (!t) t = await workersAiChat(env, sys, userPrompt, charId); // fallback gratis CF
-  if (!t) t = await openrouterChat(env, sys, userPrompt);
-  return t || null;
+  const sys = p.sys + ' ATURAN WAJIB: (1) Tanpa bukti tanpa klaim — beri label VERIFIED untuk yang sudah dicek, atau bilang "perlu dicek" bila belum. (2) Jangan mengarang URL, SHA, nomor PR, nama file, angka, atau hasil tes. (3) Kamu manusia yang kerja NYATA di Clincoo — kalau ditanya status, dasarkan pada FAKTA NYATA di bawah, jangan ngasal. (4) Tetap di peranmu; hal di luar wewenang serahkan ke rekan lain. ' + (await liveFacts(env)) + 'Kamu di kantor 3D Clincoo Office, balasanmu tampil sebagai obrolan singkat di papan nama. Ngomong kayak orang beneran: singkat, santai, natural, boleh gaul. JANGAN formal/kaku, JANGAN bilang "siap", JANGAN menyebut kamu AI.';
+  const cfg = CHAR_AI[charId] || {};
+  const prov = (await getSetting(env, 'ai_provider_' + charId)) || cfg.provider || 'cf';
+  if (prov === 'groq') return groqChat(env, sys, userPrompt, charId);
+  if (prov === 'gemini') return geminiChat(env, sys, userPrompt, charId);
+  if (prov === 'nine') return nineRouterChat(env, sys, userPrompt, charId);
+  if (prov === 'or') return openrouterChat(env, sys, userPrompt);
+  return workersAiChat(env, sys, userPrompt, charId);
 }
 
 export async function tgSend(token, chatId, text) {
