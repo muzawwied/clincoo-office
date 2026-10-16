@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, runMeeting, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus, resolveName, NAME_PATTERN, clincooRepoInfo, clincooReadPath, cfProjects } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, clincooFindReplace, clincooDeploy, clincooStatus, resolveName, NAME_PATTERN, clincooRepoInfo, clincooReadPath, cfProjects } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     const P = persona(c);

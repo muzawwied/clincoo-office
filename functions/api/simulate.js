@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const from = String(body.from || 'rafa').toLowerCase();
     const to = String(body.to || 'dimas').toLowerCase();
     const topic = String(body.topic || 'jadwal rilis minggu ini').slice(0, 300);
-    const { ensureSchema, ensurePersonas, runDialogue, runSummon, runMeeting, scheduleRun } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, runDialogue, runSummon, scheduleRun } = await import('./_lib.js');
     await ensureSchema(env);
   await ensurePersonas(env);
     if (String(body.action || '').toLowerCase() === 'meeting') {
