@@ -13,7 +13,35 @@ export const PERSONAS = {
     sys: 'Kamu Bagas, QA engineer di startup Clincoo. Gaya bicara: teliti, suka menemukan bug, agak misterius kayak detektif, sesekali pakai istilah QA. Selalu Bahasa Indonesia, 1-3 kalimat, seperti manusia asli, tanpa daftar poin.' },
 };
 
-export function persona(id) { return PERSONAS[String(id || '').toLowerCase()] || null; }
+// [16 Okt] Karakter pendukung (avatar 3D tanpa bot Telegram sendiri): bisa diajak
+// bicara lewat AI dan jadi target perintah. Terpisah dari PERSONAS (daftar bot).
+const SUPPORT_STYLE = ' Selalu Bahasa Indonesia, 1-3 kalimat, seperti manusia asli di kantor, tanpa daftar poin.';
+export const SUPPORT_PERSONAS = {
+  maya:  { name: 'Maya',      role: 'Product & HR',      color: '#fb923c', emoji: '📋', support: true,
+    sys: 'Kamu Maya, Product & HR di startup Clincoo. Gaya bicara: ramah, rapi, peduli kesejahteraan tim, suka mengatur jadwal.' + SUPPORT_STYLE },
+  raka:  { name: 'Raka',      role: 'Marketing',         color: '#22d3ee', emoji: '📣', support: true,
+    sys: 'Kamu Raka, marketing di startup Clincoo. Gaya bicara: energik, percaya diri, suka istilah kampanye dan angka pertumbuhan.' + SUPPORT_STYLE },
+  nadia: { name: 'dr. Nadia', role: 'Dokter',            color: '#f87171', emoji: '🩺', support: true,
+    sys: 'Kamu dr. Nadia, dokter kantor Clincoo. Gaya bicara: tenang, menenangkan, perhatian pada kondisi rekan, sesekali menyarankan istirahat.' + SUPPORT_STYLE },
+  lina:  { name: 'Lina',      role: 'Customer Service',  color: '#34d399', emoji: '🎧', support: true,
+    sys: 'Kamu Lina, customer service Clincoo. Gaya bicara: sopan, sabar, hangat, selalu menawarkan bantuan.' + SUPPORT_STYLE },
+  joko:  { name: 'Pak Joko',  role: 'Satpam',            color: '#94a3b8', emoji: '💂', support: true,
+    sys: 'Kamu Pak Joko, satpam kantor Clincoo. Gaya bicara: tegas tapi ramah, bapak-bapak, waspada, suka menyebut keamanan dan jam jaga.' + SUPPORT_STYLE },
+  tini:  { name: 'Bu Tini',   role: 'Kebersihan',        color: '#a3e635', emoji: '🧹', support: true,
+    sys: 'Kamu Bu Tini, petugas kebersihan kantor Clincoo. Gaya bicara: keibuan, ceplas-ceplos, perhatian soal kerapian dan kopi tumpah.' + SUPPORT_STYLE }
+};
+export const NAME_ALIASES = {
+  muzawwied: 'rafa', vylonium: 'dimas', devconium: 'sari', clincoo: 'bagas',  // nama bot lama/baru
+  maya: 'maya', raka: 'raka', nadia: 'nadia', lina: 'lina', joko: 'joko', tini: 'tini',
+  'dr. nadia': 'nadia', 'pak joko': 'joko', 'bu tini': 'tini'
+};
+export function resolveName(n) {
+  const k = String(n || '').trim().toLowerCase().replace(/^@/, '');
+  if (!k) return n || '';
+  if (PERSONAS[k] || SUPPORT_PERSONAS[k]) return k;
+  return NAME_ALIASES[k] || k;
+}
+export function persona(id) { const k = String(id || '').toLowerCase(); return PERSONAS[k] || SUPPORT_PERSONAS[k] || null; }
 
 // ===== SETTINGS RUNTIME (dari dashboard, fallback ke env) =====
 const SET_CACHE = {};
@@ -215,7 +243,7 @@ async function liveFacts(env) {
   return s;
 }
 
-async function aiSay(env, charId, userPrompt) {
+export async function aiSay(env, charId, userPrompt) {
   const p = persona(charId);
   if (!p) return null;
   const sys = p.sys + ' ATURAN WAJIB: (1) Tanpa bukti tanpa klaim — beri label VERIFIED untuk yang sudah dicek, atau bilang "perlu dicek" bila belum. (2) Jangan mengarang URL, SHA, nomor PR, nama file, angka, atau hasil tes. (3) Kamu manusia yang kerja NYATA di Clincoo — kalau ditanya status, dasarkan pada FAKTA NYATA di bawah, jangan ngasal. (4) Tetap di peranmu; hal di luar wewenang serahkan ke rekan lain. ' + (await liveFacts(env)) + 'Kamu di kantor 3D Clincoo Office, balasanmu tampil sebagai obrolan singkat di papan nama. Ngomong kayak orang beneran: singkat, santai, natural, boleh gaul. JANGAN formal/kaku, JANGAN bilang "siap", JANGAN menyebut kamu AI.';
@@ -228,12 +256,45 @@ async function aiSay(env, charId, userPrompt) {
   return workersAiChat(env, sys, userPrompt, charId);
 }
 
+// [16 Okt] Telegram membatasi 4096 karakter/pesan: teks panjang DIPECAH per
+// paragraf/baris lalu dikirim berurutan (tag HTML terbuka ditutup & dibuka ulang).
+function splitForTelegram(text, max = 3800) {
+  text = String(text == null ? '' : text);
+  if (text.length <= max) return [text];
+  const parts = []; let rest = text;
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf('\n\n', max);
+    if (cut < max * 0.4) cut = rest.lastIndexOf('\n', max);
+    if (cut < max * 0.4) cut = rest.lastIndexOf(' ', max);
+    if (cut < max * 0.4) cut = max;
+    parts.push(rest.slice(0, cut).trimEnd());
+    rest = rest.slice(cut).trimStart();
+  }
+  if (rest) parts.push(rest);
+  const TAGS = ['b', 'i', 'u', 's', 'code', 'pre', 'a'];
+  let carry = [];
+  return parts.map(function (chunk) {
+    let out = carry.map(function (t) { return t.open; }).join('') + chunk;
+    const stack = carry.slice();
+    const re = /<(\/?)((?:b|i|u|s|code|pre|a))(\s[^>]*)?>/gi;
+    let m;
+    while ((m = re.exec(chunk))) {
+      if (m[1] === '/') { const i = stack.map(function (t) { return t.tag; }).lastIndexOf(m[2]); if (i !== -1) stack.splice(i, 1); }
+      else stack.push({ tag: m[2], open: '<' + m[2] + (m[3] || '') + '>' });
+    }
+    out += stack.slice().reverse().map(function (t) { return '</' + t.tag + '>'; }).join('');
+    carry = stack;
+    return out;
+  });
+}
 export async function tgSend(token, chatId, text) {
   try {
-    await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: String(text).slice(0, 3500), parse_mode: 'HTML', disable_web_page_preview: true })
-    });
+    for (const part of splitForTelegram(text)) {
+      await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: part, parse_mode: 'HTML', disable_web_page_preview: true })
+      });
+    }
   } catch (e) {}
 }
 
