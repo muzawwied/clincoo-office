@@ -373,10 +373,10 @@ export async function runDirectorStep(env) {
 // Rute petugas berdasarkan isi pertanyaan Boss (nyata, bukan simulasi)
 export function pickStaff(q) {
   const s = String(q || '').toLowerCase();
-  if (/bug|error|kode|code|deploy|github|issue|\bpr\b|commit|halaman|web|frontend|css|loading/.test(s)) return 'dimas';
-  if (/server|backend|database|\bdb\b|hosting|uptime|monitoring|log|data|statistik|user|konek/.test(s)) return 'bagas';
-  if (/desain|design|ui|ux|tampilan|warna|layout|landing/.test(s)) return 'sari';
-  if (/rafa|frontend/.test(s)) return 'rafa';
+  if (/bug|error|kode|code|deploy|github|issue|\bpr\b|commit|rafa/.test(s)) return 'dimas';
+  if (/desain|design|\bui\b|\bux\b|tampilan|warna|layout|landing|sari/.test(s)) return 'sari';
+  if (/frontend|halaman|css|style|loading|performa|rafa/.test(s)) return 'rafa';
+  if (/server|backend|database|\bdb\b|hosting|uptime|monitoring|log|data|statistik|user|konek|web|bagas/.test(s)) return 'bagas';
   return 'dimas';
 }
 async function notifyRun(env, d, text) {
