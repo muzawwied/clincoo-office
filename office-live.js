@@ -3,7 +3,7 @@
    lalu papan namanya melebar jadi bubble dengan efek mengetik.
    Lapisan aditif: tidak mengubah logika 3D induk. */
 (() => {
-  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, maya: 4, raka: 5, nadia: 6, lina: 7, joko: 8, tini: 9, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
+  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, nadia: 6, lina: 7, joko: 8, tini: 9, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pos = (c) => c.player.position;
   const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
@@ -233,7 +233,7 @@
     if (!A) { addFeed(m); return; }
     // pesan CEO->bot dan bot->CEO cukup di Riwayat saja (tak perlu berdiri & ngomong),
     // kecuali eksekusi perintah goto yang memang harus diperankan karakter
-    if (m.from_c === 'user' && m.kind !== 'goto' && m.kind !== 'ceogoto') { addFeed(m); return; }
+    if (m.from_c === 'user' && m.kind !== 'goto' && m.kind !== 'ceogoto' && m.kind !== 'say') { addFeed(m); return; }
     if (m.to_c === 'user' && m.kind !== 'goto') { addFeed(m); return; }
     const savedWait = A.waitDur;
     A.waitDur = 1e9;
@@ -244,6 +244,16 @@
         if (bed) { await sitAtPoi(A, bed, 20000); } else { await walkToPoint(A, PLACES.sakit, 20000); }
         if (m.text) { addFeed(m); if (m.kind === 'goto') await speak(A, m.text); }
         A.waitDur = Math.max(savedWait, 240);
+        return;
+      }
+      if (m.place && m.place.indexOf('ke_') === 0) { // CEO mendatangi meja petugas (konsult nyata)
+        const ti = MAP[m.place.slice(3)];
+        const dk = DESK[ti] || PLACES.kantor;
+        await walkToPoint(A, dk, 20000);
+        const w0 = world(); const T = w0 && w0.CHARS ? w0.CHARS[ti] : null;
+        if (T) faceTo(A, T);
+        if (m.text) addFeed(m);
+        A.waitDur = Math.max(savedWait, 40);
         return;
       }
       if (m.place === 'meeting') { // RAPAT: CEO duduk di ujung meja, karyawan di sisi
@@ -279,8 +289,14 @@
       A.waitDur = Math.max(savedWait, 40);
       return;
     }
-    if (m.kind === 'release') { // rapat bubar: berdiri lalu balik aktivitas
+    if (m.kind === 'release') { // bubar: CEO balik duduk di kursi komputernya, lainnya balik aktivitas
       interruptAct(A);
+      if (m.from_c === 'user') {
+        const w = world();
+        const cc = w && w.POIS ? w.POIS.filter((p) => p.act === 'TYPE' && p.floor === 0)
+          .sort((a, b) => (Math.hypot(a.sx + 22.5, a.sz + 16.6)) - (Math.hypot(b.sx + 22.5, b.sz + 16.6)))[0] : null;
+        if (cc) { await sitAtPoi(A, cc, 20000); A.waitDur = 40; return; }
+      }
       A.waitDur = 6;
       return;
     }
@@ -295,7 +311,7 @@
 
   function addFeed(m) {
     const el = document.createElement('div'); el.className = 'ol-fi';
-    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b>${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 600).replace(/</g, '&lt;')}`;
+    el.innerHTML = `<span class="ol-t">${jam(m.ts)}</span><b>${nameById(m.from_c)}</b> → <b>${nameById(m.to_c)}</b><br>${String(m.text).slice(0, 140).replace(/</g, '&lt;')}`;
     feed.prepend(el);
     while (feed.children.length > 12) feed.lastChild.remove();
   }
