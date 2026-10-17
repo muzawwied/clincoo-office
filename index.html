@@ -2727,8 +2727,8 @@ window.__initApp = init;
 (function(){
   'use strict';
   var LIBS = [
-    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
-    'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'
+    '/libs/three.min.js',
+    '/libs/OrbitControls.js' // [17 Okt] self-host: loading stabil tanpa CDN
   ];
   var $ = function(id){ return document.getElementById(id); };
   var boot = $('boot'), txt = $('bootTxt'), sub = $('bootSub'), retry = $('bootRetry'), toastEl = $('toast');
