@@ -1132,7 +1132,7 @@ const ROLES = [
   {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:WK}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:WK},
   {t:'Dokter', doctor:true, shift:[[7, 18]]}, {t:'Customer Service', cs:true, shift:[[8.5, 12], [13, 17]]},
   {t:'Satpam', guard:true, shift:[[7, 19]]}, {t:'Kebersihan', cleaner:true, shift:[[6.5, 15]]},
-  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0.1, shift:[[0, 24]]}, // CEO selalu on: mayoritas ngetik di kursi komputernya
+  {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0, shift:[[0, 24]]}, // [17 Okt] CEO TIDAK pernah sendirian ke kursi meeting/kursi tamu
 ];
 const DOCROOM = {TYPE:1, POST:1, BELAJAR:1, DUDUK:1, NGOPI:1, SIKAT:1, GANTI:1, TIDUR:1, RACIK:1, PERIKSA:1};
 const inInfirmary = p => p.floor === 2 && p.sx >= 2 && p.sx <= 14 && p.sz >= -9 && p.sz <= 8;
@@ -1160,7 +1160,10 @@ function assignPosts(){
     const f = R.zone[0], x0 = R.zone[1], x1 = R.zone[2], z0 = R.zone[3], z1 = R.zone[4];
     const inZ = p => p.floor === f && p.sx >= x0 && p.sx <= x1 && p.sz >= z0 && p.sz <= z1;
     let L = POIS.filter(p => p.act === 'TYPE' && inZ(p) && !taken.has(p));
-    if(!L.length){ const d = POIS.find(p => p.act === 'DUDUK' && inZ(p) && !p.lie); if(d){ const q = mkPoi('TYPE', f, d.sx, d.sz, d.yaw, d.sh, {}); if(q) L = [q]; } }
+    if(!L.length && i !== 10){ const d = POIS.find(p => p.act === 'DUDUK' && inZ(p) && !p.lie); if(d){ const q = mkPoi('TYPE', f, d.sx, d.sz, d.yaw, d.sh, {}); if(q) L = [q]; } }
+    // [17 Okt] CEO: post WAJIB kursi komputer mejanya. Kalau POI TYPE meja CEO
+    // gagal dibuat, paksa buat di posisi kursinya — jangan pernah pakai kursi tamu.
+    if(!L.length && i === 10){ const q = mkPoi('TYPE', 0, -22.5, -17.1, 0, 0.52 * K, {}); if(q) L = [q]; }
     if(!L.length){ const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2; L = POIS.filter(p => p.act === 'TYPE' && p.floor === f && !taken.has(p)).sort((a, b) => Math.hypot(a.sx - cx, a.sz - cz) - Math.hypot(b.sx - cx, b.sz - cz)).slice(0, 1); }
     if(L.length){ R.post = L[0]; L[0].postOf = i; taken.add(L[0]); }
   });
@@ -1183,6 +1186,7 @@ function docWeights(h){
 }
 function shiftAct(c, h){
   const R = c.role, r = Math.random(), band = bandOf(h);
+  if(c.idx === 10) return 'POST'; // [17 Okt, arahan Boss] CEO selalu ngetik di kursi komputernya
   if(h >= 15.2 && h < 15.9 && c.solatBand !== band && r < 0.6) return 'SOLAT';
   if(R.guard){ if(c.patrolLeft > 0) return 'PATROLI'; if(r < 0.35){ c.patrolLeft = 4 + Math.floor(Math.random() * 3); return 'PATROLI'; } if(r < 0.42) return 'WC'; if(r < 0.5) return 'NGOPI'; return 'JAGA'; }
   if(R.cleaner){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return Math.random() < 0.5 ? 'SAPU' : 'PEL'; }
@@ -2831,6 +2835,6 @@ window.__initApp = init;
 })();
 
 </script>
-<script src="office-live.js?v=20261016g" defer></script>
+<script src="office-live.js?v=20261017a" defer></script>
 </body>
 </html>
