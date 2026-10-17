@@ -1191,7 +1191,9 @@ function shiftAct(c, h){
   if(R.guard){ if(c.patrolLeft > 0) return 'PATROLI'; if(r < 0.35){ c.patrolLeft = 4 + Math.floor(Math.random() * 3); return 'PATROLI'; } if(r < 0.42) return 'WC'; if(r < 0.5) return 'NGOPI'; return 'JAGA'; }
   if(R.cleaner){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return Math.random() < 0.5 ? 'SAPU' : 'PEL'; }
   if(R.cs){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return 'LAYANI'; }
-  if(r < 0.04) return 'WC'; if(r < 0.10) return 'NGOPI'; if(r < 0.13) return 'NGOPI'; if(r < 0.15) return 'NONGKRONG'; if(r < 0.16) return 'NONTON'; if(R.meet && r < 0.16 + R.meet) return 'METING'; return 'POST';
+  // [17 Okt, arahan Boss] saat jam kerja mayoritas KERJA di meja: jalan-jalan
+  // (WC/ngopi/meeting) dipangkas dari ~30% jadi ~10%, nongkrong/nonton hanya di luar jam kerja
+  if(r < 0.02) return 'WC'; if(r < 0.05) return 'NGOPI'; if(R.meet && r < 0.05 + R.meet * 0.4) return 'METING'; return 'POST';
 }
 function poiList(c, act){
   const R = c.role;
@@ -2606,7 +2608,11 @@ function buildEnv(){
 /* ===== PENGATURAN PERFORMA (otomatis menyesuaikan perangkat) ===== */
 const PERF = (() => {
   const touch = matchMedia('(pointer:coarse)').matches, dpr = window.devicePixelRatio || 1, max = Math.min(dpr, 2);
-  return {touch, dpr, low: false, max, pr: max, shadow: window.innerWidth > 900 ? 4096 : 2048, shEvery: 1, acc: 0, n: 0, cool: 0, fr: 0};
+  // [17 Okt, laporan Boss: masih berat di HP] mode HP lebih hemat sejak awal:
+  // resolusi render maks 1.5 (mulai 1.25), peta bayangan 1024 + segar tiap 3 frame,
+  // bayangan lembut dimatikan. Desktop tetap kaya seperti sebelumnya.
+  const mob = touch || window.innerWidth <= 900;
+  return {touch, dpr, low: mob, max: mob ? Math.min(dpr, 1.5) : max, pr: mob ? Math.min(dpr, 1.25) : max, shadow: mob ? 1024 : 4096, shEvery: mob ? 3 : 1, acc: 0, n: 0, cool: 0, fr: 0};
 })();
 function adaptRes(dt){            // turunkan resolusi bila patah-patah, naikkan lagi bila lancar
   if(document.hidden){ PERF.acc = 0; PERF.n = 0; return; }
@@ -2625,7 +2631,7 @@ function init(){
   scene.background = C3(0x2b3545);
   camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 500);
   camera.position.set(0, 58, 54);
-  renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
+  renderer = new THREE.WebGLRenderer({antialias: !(PERF.touch || window.innerWidth <= 900), powerPreference: 'high-performance'});
   renderer.setPixelRatio(PERF.pr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -2835,6 +2841,6 @@ window.__initApp = init;
 })();
 
 </script>
-<script src="office-live.js?v=20261017a" defer></script>
+<script src="office-live.js?v=20261017b" defer></script>
 </body>
 </html>
