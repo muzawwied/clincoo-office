@@ -827,7 +827,7 @@ function makeChars(){
     p = p || POIS[0]; used.push(p);
     if(c.role.post) p = c.role.post; // spawn di posisi kerja: CEO di kursi komputernya
     root.position.set(p.ax, FY[p.floor], p.az); c.pFloor = p.floor; c.floorY = FY[p.floor]; root.rotation.y = c.yawNow;
-    CHARS.push(c); if(gameHour() < 5 || gameHour() >= 22.2) sleepAt(c, i);
+    CHARS.push(c); // [17 Okt] tidak ada tidur otomatis - kantor selalu hidup
   });
   curCh = CHARS[0]; loadCh(curCh);
 }
@@ -1127,11 +1127,11 @@ function updTimeUI(){
 /* ===== peran & tugas tiap karakter ===== */
 const WK = [[8.5, 12], [13, 17.5]];
 const ROLES = [
-  {t:'Frontend Dev', zone:[0, -16, 0, -4, 8], meet:0.15, shift:WK}, {t:'Developer', zone:[0, -16, 0, -4, 8], shift:WK},
-  {t:'UI/UX Designer', zone:[0, -4, 10, -20, -6], shift:WK}, {t:'DevOps', zone:[0, 10, 18, -20, -6], shift:WK},
-  {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:WK}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:WK},
-  {t:'Dokter', doctor:true, shift:[[7, 18]]}, {t:'Customer Service', cs:true, shift:[[8.5, 12], [13, 17]]},
-  {t:'Satpam', guard:true, shift:[[7, 19]]}, {t:'Kebersihan', cleaner:true, shift:[[6.5, 15]]},
+  {t:'Frontend Dev', zone:[0, -16, 0, -4, 8], meet:0.15, shift:[[0, 24]]}, {t:'Developer', zone:[0, -16, 0, -4, 8], shift:[[0, 24]]},
+  {t:'UI/UX Designer', zone:[0, -4, 10, -20, -6], shift:[[0, 24]]}, {t:'DevOps', zone:[0, 10, 18, -20, -6], shift:[[0, 24]]},
+  {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:[[0, 24]]}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:[[0, 24]]},
+  {t:'Dokter', doctor:true, shift:[[0, 24]]}, {t:'Customer Service', cs:true, shift:[[0, 24]]},
+  {t:'Satpam', guard:true, shift:[[0, 24]]}, {t:'Kebersihan', cleaner:true, shift:[[0, 24]]},
   {t:'CEO', zone:[0, -28, -17, -20, -6], meet:0, shift:[[0, 24]]}, // [17 Okt] CEO TIDAK pernah sendirian ke kursi meeting/kursi tamu
 ];
 const DOCROOM = {TYPE:1, POST:1, BELAJAR:1, DUDUK:1, NGOPI:1, SIKAT:1, GANTI:1, TIDUR:1, RACIK:1, PERIKSA:1};
@@ -1178,22 +1178,14 @@ function fitFor(c, h){
   const pool = CAS[g].filter(i => i !== c.outfit); return pool[Math.floor(Math.random() * pool.length)];
 }
 function docWeights(h){
-  if(h < 5 || h >= 22.5) return {TIDUR:100};
-  if(h < 7) return {GANTI:30, SIKAT:20, MANDI:15, NGOPI:15, WC:8, SOLAT:h < 5.9 ? 30 : 0, DUDUK:5};
-  if(h >= 18) return {BELAJAR:20, DUDUK:15, TYPE:10, SIKAT:10, NGOPI:10, MANDI:8, WC:8, GANTI:10, SOLAT:SCHED[bandOf(h)][1].SOLAT ? 25 : 0, TIDUR:h >= 21.5 ? 30 : 0};
-  const w = {POST:40, RACIK:12, BELAJAR:10, NGOPI:8, SIKAT:5, DUDUK:8, WC:3, PERIKSA:8};
-  if(SCHED[bandOf(h)][1].SOLAT) w.SOLAT = 25; return w;
-}
+  return {POST:55, RACIK:15, PERIKSA:15, BELAJAR:10, NGOPI:5}; // [17 Okt] dokter selalu bertugas
 function shiftAct(c, h){
-  const R = c.role, r = Math.random(), band = bandOf(h);
-  if(c.idx === 10) return 'POST'; // [17 Okt, arahan Boss] CEO selalu ngetik di kursi komputernya
-  if(h >= 15.2 && h < 15.9 && c.solatBand !== band && r < 0.6) return 'SOLAT';
-  if(R.guard){ if(c.patrolLeft > 0) return 'PATROLI'; if(r < 0.35){ c.patrolLeft = 4 + Math.floor(Math.random() * 3); return 'PATROLI'; } if(r < 0.42) return 'WC'; if(r < 0.5) return 'NGOPI'; return 'JAGA'; }
-  if(R.cleaner){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return Math.random() < 0.5 ? 'SAPU' : 'PEL'; }
-  if(R.cs){ if(r < 0.05) return 'WC'; if(r < 0.12) return 'NGOPI'; return 'LAYANI'; }
-  // [17 Okt, arahan Boss] saat jam kerja mayoritas KERJA di meja: jalan-jalan
-  // (WC/ngopi/meeting) dipangkas dari ~30% jadi ~10%, nongkrong/nonton hanya di luar jam kerja
-  if(r < 0.02) return 'WC'; if(r < 0.05) return 'NGOPI'; if(R.meet && r < 0.05 + R.meet * 0.4) return 'METING'; return 'POST';
+  const R = c.role;
+  // [17 Okt, arahan Boss] SEMUA karakter duduk kerja sesuai profesinya, tidak jalan-jalan.
+  if(R.guard) return 'JAGA';                                    // satpam: standby di pos jaga
+  if(R.cleaner) return Math.random() < 0.5 ? 'SAPU' : 'PEL';    // Bu Tini: kerja bersih-bersih (itu profesinya)
+  if(R.cs) return 'LAYANI';                                     // Lina: melayani di meja depan
+  return 'POST';                                                // CEO/developer/desainer/dll: ngetik di meja kerjanya
 }
 function poiList(c, act){
   const R = c.role;
@@ -1213,7 +1205,7 @@ function poiList(c, act){
 function pickTask(){
   const c = curCh, R = c.role, h = gameHour(), band = bandOf(h); stT = 0;
   let w; const pjNow = OUTFITS[c.outfit].pj;
-  if(pjNow && h >= 6.5 && h < 21 && poiList(c, 'GANTI').length) w = {GANTI:1};
+  // [17 Okt] tanpa ganti piyama otomatis
   else if(c.look.work !== undefined && onShift(R, h) && c.outfit !== c.look.work && poiList(c, 'GANTI').length) w = {GANTI:1};
   else if(R.doctor){ w = docWeights(h); if(CHARS.some(o => o !== c && o.poi && o.poi.act === 'SAKIT' && o.st === 'ACT')) w.PERIKSA = 90; }
   else if(onShift(R, h)){ w = {}; w[shiftAct(c, h)] = 1; }
