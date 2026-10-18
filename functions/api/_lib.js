@@ -107,9 +107,44 @@ export async function setStatus(env, char, status) {
     .bind(String(char), String(status), Date.now()).run();
 }
 
+// [18 Okt, arahan Boss] REDAKSI RAHASIA: pola kunci/token tidak boleh keluar
+// lewat Telegram maupun papan kantor (API board publik). Sensor cukup: {Rahasia}
+const SECRET_PATTERNS = [
+  /gho_[A-Za-z0-9]{16,}/g, /gsk_[A-Za-z0-9]{16,}/g, /AIza[A-Za-z0-9_-]{15,}/g,
+  /AQ\.[A-Za-z0-9_-]{8,}/g, /sk-[A-Za-z0-9]{16,}/g, /cfut_[A-Za-z0-9_-]{10,}/g,
+  /office_data_[A-Za-z0-9]{8,}/g, /xox[baprs]-[A-Za-z0-9-]{10,}/g,
+  /\b\d{8,10}:[A-Za-z0-9_-]{30,}\b/g,
+  /-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----/g
+];
+export function redactSecrets(text) {
+  let t = String(text == null ? '' : text);
+  for (const re of SECRET_PATTERNS) t = t.replace(re, '{Rahasia}');
+  return t;
+}
+
+// [18 Okt, arahan Boss] DATA NYATA dari aplikasi Clincoo: jumlah user, sesi aktif,
+// proyek. Endpoint baca-saja /api/office-data (kunci OFFICE_DATA_KEY, hanya angka
+// agregat — tanpa data pribadi). Cache 60 detik.
+let _appStats = { t: 0, s: null };
+export async function clincooAppStats(env) {
+  if (Date.now() - _appStats.t < 60000 && _appStats.s !== null) return _appStats.s;
+  try {
+    const key = env.OFFICE_DATA_KEY || '';
+    const base = env.CLINCOO_API_URL || 'https://clincoo-be2.pages.dev';
+    const r = await fetch(base + '/api/office-data?key=' + encodeURIComponent(key), { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) { _appStats = { t: Date.now(), s: null }; return null; }
+    const d = await r.json();
+    if (!d || !d.ok) { _appStats = { t: Date.now(), s: null }; return null; }
+    const s = 'Data nyata aplikasi Clincoo saat ini: total user terdaftar ' + d.users_total + ' (baru hari ini ' + d.users_new_today + '), sesi login aktif ' + d.sessions_active + ', total proyek ' + d.projects_total + ' (aktif dalam 7 hari terakhir ' + d.projects_active_7d + ').';
+    _appStats = { t: Date.now(), s };
+    return s;
+  } catch (e) { _appStats = { t: Date.now(), s: null }; return null; }
+}
+const DATA_Q = /(jumlah|berapa|banyak|statistik|total|data|riwayat).{0,25}(user|pengguna|pendaftar|akun|orang|proyek|project|sesi|pelanggan|klien)|(user|pengguna|proyek|project|sesi).{0,20}(jumlah|berapa|statistik|total)/i;
+
 export async function logMsg(env, from, to, text, kind, place) {
   const r = await env.DB.prepare('INSERT INTO office_msg (ts, from_c, to_c, text, kind, place) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(Date.now(), String(from), String(to || 'kantor'), String(text).slice(0, 800), kind || null, place || null).run();
+    .bind(Date.now(), String(from), String(to || 'kantor'), redactSecrets(text).slice(0, 4000), kind || null, place || null).run(); // [18 Okt] redaksi + batas 4000
   return (r.meta && r.meta.last_row_id) || 0;
 }
 
@@ -308,6 +343,7 @@ function splitForTelegram(text, max = 3800) {
 }
 export async function tgSend(token, chatId, text) {
   try {
+    text = redactSecrets(text);
     for (const part of splitForTelegram(text)) {
       await fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

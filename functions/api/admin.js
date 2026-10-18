@@ -87,6 +87,12 @@ export async function onRequestPost({ request, env }) {
     await setSetting(env, k, String(body.v || ''));
     return Response.json({ ok: true });
   }
+  // [18 Okt] debug: tes penarikan data nyata Clincoo dari dalam worker office
+  if (act === 'app_stats') {
+    const { clincooAppStats } = await import('./_lib.js');
+    const facts = await clincooAppStats(env);
+    return Response.json({ ok: !!facts, facts: facts || null });
+  }
   if (act === 'test_ai') {
     const { ensurePersonas } = await import('./_lib.js');
     await ensurePersonas(env);
