@@ -52,27 +52,39 @@
   feedBtn.onclick = () => { feed.classList.toggle('on'); if (feed.classList.contains('on')) feedBtn.classList.remove('ol-new'); };
   document.body.append(feedBtn, feed);
 
-  // [18 Okt, arahan Boss] card data Clincoo di sebelah jam (hanya mode lanskap), isi nyata dari polling board
+  // [18 Okt, arahan Boss] 2 kartu terpisah di sebelah jam (lanskap): user Clincoo & situs terpublikasi - ikon + angka saja
   const clockRef = document.querySelector('.clock');
-  let statCard = null, msgToday = 0;
+  let statA = null, statB = null;
   if (clockRef) {
     const st = document.createElement('style');
-    st.textContent = '#ol-stat{position:fixed;top:calc(12px + var(--st,12px));left:0;display:none;align-items:center;gap:10px;padding:7px 13px;border-radius:16px;background:rgba(20,24,33,.78);backdrop-filter:blur(8px);color:#e5e7eb;font:600 11.5px system-ui,sans-serif;z-index:7;white-space:nowrap;user-select:none}'
-      + '@media (orientation: landscape){#ol-stat{display:flex}}'
-      + '#ol-stat b{color:#93c5fd;font-weight:700}#ol-stat .sp{width:1px;height:14px;background:rgba(255,255,255,.14)}';
+    st.textContent = '.ol-stat{position:fixed;top:calc(12px + var(--st,12px));left:0;display:none;align-items:center;gap:7px;padding:8px 13px;border-radius:3px;background:rgba(17,21,30,.8);backdrop-filter:blur(8px);color:#e5e7eb;font:700 14px system-ui,sans-serif;z-index:7;user-select:none}'
+      + '.ol-stat svg{width:15px;height:15px;display:block;stroke:#93c5fd}'
+      + '@media (orientation: landscape){.ol-stat{display:flex}}';
     document.head.appendChild(st);
-    statCard = document.createElement('div'); statCard.id = 'ol-stat';
-    statCard.innerHTML = '<span>💬 <b>0</b> chat</span><span class="sp"></span><span>👥 <b>0</b> kerja</span><span class="sp"></span><span title="sinkronisasi board">⚡ <b>1.3s</b></span>';
-    document.body.appendChild(statCard);
-    const place = () => { const r = clockRef.getBoundingClientRect(); statCard.style.left = (r.right + 8) + 'px'; };
+    const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    const SVG_SITE = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+    statA = document.createElement('div'); statA.className = 'ol-stat'; statA.title = 'User Clincoo terdaftar (real-time)';
+    statA.innerHTML = SVG_USER + '<span id="ol-users">0</span>';
+    statB = document.createElement('div'); statB.className = 'ol-stat'; statB.title = 'Situs terpublikasi (Cloudflare Pages)';
+    statB.innerHTML = SVG_SITE + '<span id="ol-sites">0</span>';
+    document.body.append(statA, statB);
+    const place = () => {
+      const r = clockRef.getBoundingClientRect();
+      statA.style.left = (r.right + 10) + 'px';
+      statB.style.left = (r.right + 10 + statA.offsetWidth + 14) + 'px';
+    };
     place(); window.addEventListener('resize', place); setInterval(place, 20000);
+    // data nyata dari /api/stats (database + Cloudflare), refresh tiap 60 detik
+    const pull = () => fetch('/api/stats', { cache: 'no-store' }).then(r => r.json()).then(j => {
+      if (!j || !j.ok) return;
+      const a = document.getElementById('ol-users'), b = document.getElementById('ol-sites');
+      if (a) a.textContent = j.users || 0;
+      if (b) b.textContent = j.sites || 0;
+      place();
+    }).catch(() => {});
+    pull(); setInterval(pull, 60000);
   }
-  function updStat() {
-    try {
-      const w = world(); const n = w && w.CHARS ? w.CHARS.length : 0;
-      statCard.innerHTML = '<span title="obrolan hari ini">💬 <b>' + msgToday + '</b> chat</span><span class="sp"></span><span title="karakter sedang kerja di pos">👥 <b>' + n + '</b> kerja</span><span class="sp"></span><span title="sinkronisasi board">⚡ <b>1.3s</b></span>';
-    } catch (e) {}
-  }
+
 
   let lastId = 0, queue = [], playing = false, statusNow = {}, loaded = false;
   // PATROL REAL: cek situs/bot/GitHub/DB nyata tiap 3 menit saat kantor dibuka
@@ -362,17 +374,16 @@
       const j = await r.json();
       if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); return; }
       feedBtn.title = 'Riwayat obrolan';
-      statusNow = j.status || {}; applyStatus(); if (statCard) updStat();
+      statusNow = j.status || {}; applyStatus();
       const msgs = j.msgs || [];
       if (!loaded) { // sinkronisasi awal: serap SEMUA batch riwayat dulu (API balas per 80)
-        for (const m of msgs) if (m.id > lastId) { lastId = m.id; addFeed(m); if (new Date((m.ts || 0) * 1000).toDateString() === new Date().toDateString()) msgToday++; }
+        for (const m of msgs) if (m.id > lastId) { lastId = m.id; addFeed(m); }
         if (msgs.length < 80) loaded = true; // batch kurang dari 80 = riwayat habis, mulai mode live
         return;
       }
       let fresh = 0;
       for (const m of msgs) {
         if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
-        if (new Date((m.ts || 0) * 1000).toDateString() === new Date().toDateString()) msgToday++;
         lastId = Math.max(lastId, m.id);
         fresh++; queue.push(m);
       }
