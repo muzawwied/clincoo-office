@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
     if (!token || s !== token) return Response.json({ ok: false }, { status: 403 });
 
-    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, pickStaff, enrichBotNames } = await import('./_lib.js');
+    const { ensureSchema, ensurePersonas, persona, aiSay, aiChatRetry, logMsg, setStatus, tgSend, runDialogue, runSummon, scheduleRun, hasPendingRun, PLACE_WORDS, ghCreateIssue, ghGetPR, ghGetPRFiles, ghCommentIssue, ghList, webFindReplace, cfDeploy, cfStatus, cfDomains, pickStaff, enrichBotNames, getSetting, setSetting } = await import('./_lib.js');
     await ensureSchema(env);
     await ensurePersonas(env);
     await enrichBotNames(env); // [18 Okt] nama persona = nama bot resmi (tanpa kata 'bot')
@@ -20,11 +20,42 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const body = await request.json().catch(() => ({}));
     const msg = body.message || body.edited_message || {};
     const chatId = msg.chat && msg.chat.id;
+    const fromId = msg.from && msg.from.id;
+    const fromName = (msg.from && (msg.from.first_name || msg.from.username)) || ('id ' + fromId);
+    const isBotSender = !!(msg.from && msg.from.is_bot);
     const text = String(msg.text || '').trim();
     if (!chatId) return Response.json({ ok: true });
 
+    // ===== [18 Okt, arahan Boss] KEAMANAN: bot khusus Boss =====
+    // 1) Hanya grup kantor Boss (boss_group_id) dan DM Boss (boss_tg_id) yang diproses.
+    // 2) boss_tg_id DIKUNCI dari pengirim manusia pertama di grup kantor —
+    //    setelah terkunci, pengirim lain (termasuk pendatang di grup) DITOLAK.
+    // 3) Pesan dari pihak tak dikenal TIDAK diproses; Boss dapat notifikasi
+    //    (maks 1 per 10 menit) — bukan diam-diam.
+    const groupId = await getSetting(env, 'boss_group_id');
+    let bossId = await getSetting(env, 'boss_tg_id');
+    if (!bossId && groupId && String(chatId) === String(groupId) && fromId && !isBotSender) {
+      bossId = String(fromId);
+      await setSetting(env, 'boss_tg_id', bossId); // kunci pertama: Boss
+    }
+    const chatAllowed = String(chatId) === String(groupId) || (bossId && String(chatId) === bossId);
+    const senderAllowed = !bossId || isBotSender || String(fromId) === bossId;
+    if (!chatAllowed || !senderAllowed) {
+      try {
+        const lastN = Number(await getSetting(env, 'intrude_notified_at') || 0);
+        if (Date.now() - lastN > 10 * 60 * 1000) {
+          await setSetting(env, 'intrude_notified_at', String(Date.now()));
+          const ctx = text.slice(0, 80);
+          if (groupId) await tgSend(token, groupId, '⚠️ <b>Peringatan keamanan</b>\nPesan dari pengirim tak dikenal ditolak:\n👤 ' + String(fromName) + ' (id <code>' + fromId + '</code>)' + (ctx ? '\n💬 "' + ctx + '"' : '') + '\nBot ini khusus Boss. Pesan tidak diproses.');
+        }
+      } catch (e) {}
+      return Response.json({ ok: true }); // tolak diam-diam utk si penyusup
+    }
+
+    // binding chat hanya untuk chat yang DIIZINKAN (dulu: siapa pun bisa membajak)
     await env.DB.prepare('INSERT INTO office_chat (char, chat_id) VALUES (?, ?) ON CONFLICT(char) DO UPDATE SET chat_id = ?2').bind(c, String(chatId)).run();
     // [18 Okt, arahan Boss] catat user Clincoo (real-time) setiap ada yang chat bot
+    // — dengan guard di atas, hanya Boss yang tercatat
     try {
       const fu = msg.from || {};
       if (fu.id) {
@@ -34,7 +65,6 @@ export async function onRequestPost({ request, env, waitUntil }) {
           .bind(String(fu.id), String(fu.first_name || fu.username || 'user'), now, now).run();
       }
     } catch (e) {}
-
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
 
@@ -217,8 +247,15 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const h = await env.DB.prepare('SELECT from_c, text FROM office_msg WHERE (from_c = ?1 OR to_c = ?1) AND (from_c = \'user\' OR to_c = \'user\') AND text != \'\' ORDER BY id DESC LIMIT 6').bind(c).all();
       ctx = (h.results || []).reverse().map(r => (r.from_c === 'user' ? 'Boss: ' : 'Kamu: ') + String(r.text).slice(0, 140)).join('\n');
     } catch (e) {}
+    // [18 Okt] Boss nanya soal data user/proyek -> tarik angka NYATA dari app Clincoo
+    let appFacts = '';
+    try { const { clincooAppStats } = await import('./_lib.js');
+      if (/jumlah|berapa|statistik|total|data/.test(text) && /user|pengguna|proyek|project|sesi|pendaftar|akun/i.test(text)) {
+        appFacts = await clincooAppStats(env) || '';
+      }
+    } catch (e) {}
     const reply = await aiChatRetry(env, c, `Riwayat obrolanmu dengan Boss (terbaru di bawah):
-${ctx}
+${ctx}${appFacts ? '\n\nFAKTA NYATA dari database Clincoo (WAJIB pakai angka ini, sebut angkanya, jangan karang): ' + appFacts : ''}
 
 Boss barusan berkata: "${text}". Balas sebagai ${P.name} (${P.role}) dengan hormat tapi santai. PENTING, JANGAN LANGGAR: (a) Jangan pernah mengklaim pekerjaan/hasil/cek sudah selesai kalau kamu TIDAK benar-benar melakukannya — kalau Boss minta hasil dan belum ada hasil nyata, jujur bilang belum ada hasil, lalu tawarkan langkah nyata berikutnya. (b) Jangan bilang "lagi di-scan/di-cek/di-proses" kalau tidak ada proses beneran yang jalan. (c) Jangan minta Boss yang kirim hasil/link/file — itu tugasmu. (d) Data yang benar-benar ada di sistem hanya yang ada di FAKTA NYATA — kalau Boss minta data yang tidak ada di sana, jujur bilang datanya belum ada, dan sebut apa yang bisa kamu cek nyata. (e) Kalau di riwayat kamu pernah bilang sudah selesai/sudah push tapi tidak ada buktinya di FAKTA NYATA, akui jujur klaim itu keliru — jangan dipertahankan. Kamu TIDAK bisa push/upload apa pun lewat obrolan ini, jadi jangan pernah menjanjikan itu; kalau perlu aksi GitHub, minta Boss pakai perintah 'bikin issue' atau tanya CEO.`);
     if (!reply) {

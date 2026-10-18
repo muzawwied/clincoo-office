@@ -476,7 +476,10 @@ async function consultStep(env, d, step) {
     return true;
   }
   if (step === 1) { // petugas menjawab ASLI berdasarkan data nyata
-    const ans = await aiSayRetry(env, d.staff, 'CEO Clincoo datang ke mejamu dan bertanya: "' + d.q + '". Jawab sebagai ' + S.name + ' (' + S.role + ') hanya berdasarkan FAKTA NYATA — kalau datanya tidak ada di sistem, jujur bilang belum ada/berapa cara ceknya. 1-3 kalimat, gaya bicaramu sendiri.');
+    // [18 Okt] soal data user/proyek -> tarik ANGKA NYATA dari app Clincoo dulu
+    let facts = '';
+    try { if (DATA_Q.test(d.q)) { facts = await clincooAppStats(env) || ''; if (facts) d.facts = facts; } } catch (e) {}
+    const ans = await aiSayRetry(env, d.staff, 'CEO Clincoo datang ke mejamu dan bertanya: "' + d.q + '". Jawab sebagai ' + S.name + ' (' + S.role + ') hanya berdasarkan FAKTA NYATA — kalau datanya tidak ada di sistem, jujur bilang belum ada/berapa cara ceknya.' + (facts ? ' FAKTA NYATA dari database Clincoo (WAJIB pakai angka ini, sebut angkanya): ' + facts : '') + ' 1-3 kalimat, gaya bicaramu sendiri.');
     d.ans = ans || '(otakku lagi gangguan, belum bisa jawab, CEO)';
     if (ans) { await logMsg(env, d.staff, 'user', ans); await setStatus(env, d.staff, 'bicara'); }
     else await logMsg(env, d.staff, 'user', d.ans);
@@ -488,7 +491,7 @@ async function consultStep(env, d, step) {
     return true;
   }
   if (step === 3) { // CEO jawab Boss dari mejanya
-    const fin = await aiChatRetry(env, 'ceo', 'Boss kamu (pemilik Clincoo, panggil "Boss") nanya: "' + d.q + '". Kamu sudah JALAN sendiri ke meja ' + S.name + ' (' + S.role + ') dan jawabannya: "' + (d.ans || '') + '". Susun jawaban singkat buat Boss — sebut kamu sudah cek langsung ke ' + S.name + '. JANGAN tambah fakta yang tidak ada di jawaban itu.');
+    const fin = await aiChatRetry(env, 'ceo', 'Boss kamu (pemilik Clincoo, panggil "Boss") nanya: "' + d.q + '". Kamu sudah JALAN sendiri ke meja ' + S.name + ' (' + S.role + ') dan jawabannya: "' + (d.ans || '') + '". Susun jawaban singkat buat Boss — sebut kamu sudah cek langsung ke ' + S.name + '. JANGAN tambah fakta yang tidak ada di jawaban itu.' + (d.facts ? ' Sebut angka dari data yang dicek ' + S.name + ' itu.' : ''));
     if (fin) { await logMsg(env, 'user', 'kantor', fin, 'say'); await setStatus(env, 'user', 'mengetik'); }
     await notifyRun(env, d, '🧑‍💼 <b>CEO Vylonium</b>: ' + (fin || 'Maaf Boss, otakku lagi gangguan.'));
     return null;
