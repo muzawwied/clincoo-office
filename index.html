@@ -1975,12 +1975,11 @@ function floor1(){ curFloor = 0;
   for(let i = 0; i < 7; i++){ rack(12.4, -18.5 + i * 0.95, 1); rack(15.6, -18.5 + i * 0.95, -1); }
   B(scene, 2.8, 1.8, 0.7, 0xcfc9c0, 14, 0, -19.5);
   for(let i = 0; i < 6; i++) B(scene, 2.4, 0.03, 0.02, 0x6b7380, 14, 0.3 + i * 0.25, -19.14, {cast:false});
-  [-18.6, -12.5].forEach(zz => { B(scene, 0.06, 2.6, 0.06, 0x475569, 12.95, 0, zz, {cast:false}); B(scene, 0.06, 2.6, 0.06, 0x475569, 15.05, 0, zz, {cast:false}); });
-  B(scene, 2.4, 0.07, 6.8, 0x475569, 14, 2.6, -15.7, {cast:false});
+  // [18 Okt, arahan Boss] balok/slab atas ruang server dihapus - nutup pemandangan ruangan
   ws(10.75, -9, Math.PI / 2, {w:2.2, dual:true, v:2, chair:0x1f2937, mug:0x22c55e});
   pl(scene, 1.8, 1.0, metricsT, 10.14, 1.4, -12.3, Math.PI / 2, true);
   B(scene, 0.6, 0.6, 0.5, 0xdc2626, 10.7, 0, -6.9);
-  glow(scene, 0.04, 0.04, 6.4, 0x38bdf8, 14, 2.55, -15.7);
+
  {
   const light = new THREE.PointLight(0x38bdf8, 1.1, 10);
   light.position.set(14, 2.4, -13);
