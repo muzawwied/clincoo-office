@@ -11,7 +11,7 @@ export async function onRequestGet({ env }) {
   try {
     const acc = env.CLOUDFLARE_ACCOUNT_ID, tok = env.CLOUDFLARE_API_TOKEN;
     if (acc && tok) {
-      const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects?per_page=100', { headers: { Authorization: 'Bearer ' + tok } });
+      const r = await fetch('https://api.cloudflare.com/client/v4/accounts/' + acc + '/pages/projects', { headers: { Authorization: 'Bearer ' + tok } }); // tanpa per_page: API CF menolak opsi list
       const j = await r.json();
       if (j && j.success) sites = (j.result || []).length;
     }
