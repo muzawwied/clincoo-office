@@ -55,9 +55,8 @@ export async function enrichBotNames(env) {
       const r = await fetch('https://api.telegram.org/bot' + tok + '/getMe');
       const j = await r.json();
       if (!j.ok) continue;
-      const raw = j.result.first_name || j.result.username;
-      if (!raw) continue;
-      const nm = String(raw).replace(/\bBot\b/gi, '').replace(/[_\-]+$/, '').trim();
+      const u = j.result.username || '', f = j.result.first_name || '';
+      const nm = u ? u.replace(/bot$/i, '') : f.replace(/\bBot\b/gi, '').replace(/['']s$/, '').trim(); // [18 Okt] nama bot tanpa kata 'bot'
       if (nm) PERSONAS[id].name = nm.slice(0, 20);
     } catch (e) {}
   }
