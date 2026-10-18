@@ -280,11 +280,14 @@
         A.waitDur = Math.max(savedWait, 240);
         return;
       }
-      if (m.place && m.place.indexOf('ke_') === 0) { // CEO mendatangi meja petugas (konsult nyata)
+      if (m.place && m.place.indexOf('ke_') === 0) { // CEO mendatangi petugas (konsult nyata)
         const ti = MAP[m.place.slice(3)];
-        const dk = DESK[ti] || PLACES.kantor;
-        await walkToPoint(A, dk, 20000);
         const w0 = world(); const T = w0 && w0.CHARS ? w0.CHARS[ti] : null;
+        // [18 Okt, laporan Boss: CEO nyasar] tujuan = POSISI KARAKTER SEBENARNYA,
+        // bukan koordinat meja statis: kalau petugasnya di mejanya CEO ke mejanya,
+        // kalau lagi di pantry/ngopi CEO ke sana — pasti menemui orangnya.
+        const dk = T ? { f: (T.pFloor || 0), x: pos(T).x, z: pos(T).z } : (DESK[ti] || PLACES.kantor);
+        await walkToPoint(A, dk, 20000);
         if (T) faceTo(A, T);
         if (m.text) addFeed(m);
         A.waitDur = Math.max(savedWait, 40);
