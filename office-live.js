@@ -52,6 +52,28 @@
   feedBtn.onclick = () => { feed.classList.toggle('on'); if (feed.classList.contains('on')) feedBtn.classList.remove('ol-new'); };
   document.body.append(feedBtn, feed);
 
+  // [18 Okt, arahan Boss] card data Clincoo di sebelah jam (hanya mode lanskap), isi nyata dari polling board
+  const clockRef = document.querySelector('.clock');
+  let statCard = null, msgToday = 0;
+  if (clockRef) {
+    const st = document.createElement('style');
+    st.textContent = '#ol-stat{position:fixed;top:calc(12px + var(--st,12px));left:0;display:none;align-items:center;gap:10px;padding:7px 13px;border-radius:16px;background:rgba(20,24,33,.78);backdrop-filter:blur(8px);color:#e5e7eb;font:600 11.5px system-ui,sans-serif;z-index:7;white-space:nowrap;user-select:none}'
+      + '@media (orientation: landscape){#ol-stat{display:flex}}'
+      + '#ol-stat b{color:#93c5fd;font-weight:700}#ol-stat .sp{width:1px;height:14px;background:rgba(255,255,255,.14)}';
+    document.head.appendChild(st);
+    statCard = document.createElement('div'); statCard.id = 'ol-stat';
+    statCard.innerHTML = '<span>💬 <b>0</b> chat</span><span class="sp"></span><span>👥 <b>0</b> kerja</span><span class="sp"></span><span title="sinkronisasi board">⚡ <b>1.3s</b></span>';
+    document.body.appendChild(statCard);
+    const place = () => { const r = clockRef.getBoundingClientRect(); statCard.style.left = (r.right + 8) + 'px'; };
+    place(); window.addEventListener('resize', place); setInterval(place, 20000);
+  }
+  function updStat() {
+    try {
+      const w = world(); const n = w && w.CHARS ? w.CHARS.length : 0;
+      statCard.innerHTML = '<span title="obrolan hari ini">💬 <b>' + msgToday + '</b> chat</span><span class="sp"></span><span title="karakter sedang kerja di pos">👥 <b>' + n + '</b> kerja</span><span class="sp"></span><span title="sinkronisasi board">⚡ <b>1.3s</b></span>';
+    } catch (e) {}
+  }
+
   let lastId = 0, queue = [], playing = false, statusNow = {}, loaded = false;
   // PATROL REAL: cek situs/bot/GitHub/DB nyata tiap 3 menit saat kantor dibuka
   setInterval(() => { fetch('/api/patrol', { method: 'POST' }).catch(() => {}); }, 180000);
@@ -340,16 +362,17 @@
       const j = await r.json();
       if (!j.ok) { feedBtn.title = 'board: ' + (j.error || ''); return; }
       feedBtn.title = 'Riwayat obrolan';
-      statusNow = j.status || {}; applyStatus();
+      statusNow = j.status || {}; applyStatus(); if (statCard) updStat();
       const msgs = j.msgs || [];
       if (!loaded) { // sinkronisasi awal: serap SEMUA batch riwayat dulu (API balas per 80)
-        for (const m of msgs) if (m.id > lastId) { lastId = m.id; addFeed(m); }
+        for (const m of msgs) if (m.id > lastId) { lastId = m.id; addFeed(m); if (new Date((m.ts || 0) * 1000).toDateString() === new Date().toDateString()) msgToday++; }
         if (msgs.length < 80) loaded = true; // batch kurang dari 80 = riwayat habis, mulai mode live
         return;
       }
       let fresh = 0;
       for (const m of msgs) {
         if (m.id <= lastId) continue; // dedup anti-race: pesan lama tak pernah diputar ulang
+        if (new Date((m.ts || 0) * 1000).toDateString() === new Date().toDateString()) msgToday++;
         lastId = Math.max(lastId, m.id);
         fresh++; queue.push(m);
       }
