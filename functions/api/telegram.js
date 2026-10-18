@@ -65,8 +65,23 @@ export async function onRequestPost({ request, env, waitUntil }) {
           .bind(String(fu.id), String(fu.first_name || fu.username || 'user'), now, now).run();
       }
     } catch (e) {}
+    // [18 Okt] hitung penjawab grup SEKALI di awal (deterministik di semua bot):
+    // dipakai untuk log papan (1x saja) dan memilih siapa yang menjawab.
+    const _isGroup = String(chatId) === String(groupId || '') && !text.startsWith('/');
+    let _resp = c;
+    if (_isGroup) {
+      const RESP = ['rafa', 'dimas', 'sari', 'bagas'];
+      const NAME_MAP = { muzawwied: 'rafa', rafa: 'rafa', vylonium: 'dimas', dimas: 'dimas', devconium: 'sari', sari: 'sari', clincoo: 'bagas', bagas: 'bagas' };
+      const low = text.toLowerCase();
+      const mm = low.match(/\b(muzawwied|rafa|vylonium|dimas|devconium|sari|clincoo|bagas)\b/);
+      if (mm) _resp = NAME_MAP[mm[1]];
+      else if (/\b(bug|error|data|user|deploy|kode|code|desain|design|ui|ux|frontend|backend|server|database|statistik|proyek|halaman|issue|github|pr|commit)\b/.test(low)) _resp = pickStaff(low);
+      else _resp = RESP[(Number(msg.message_id) || 0) % 4];
+    }
+
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
-    if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
+    // (pesan grup hanya dicatat SEKALI oleh penjawab, bukan 4x oleh semua bot)
+    if (text && !text.startsWith('/') && (!_isGroup || c === _resp)) await logMsg(env, 'user', c, text);
 
     // ===== KERJAAAN NYATA: GitHub =====
     const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
@@ -245,17 +260,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // (deterministik, tanpa balapan): sebut nama -> karakter itu; topik kerja
     // (data/bug/desain/frontend) -> petugas relevan via pickStaff; obrolan umum
     // -> bergilir rapi per pesan.
-    if (String(chatId) === String(groupId || '') && !text.startsWith('/')) {
-      const RESP = ['rafa', 'dimas', 'sari', 'bagas'];
-      const NAME_MAP = { muzawwied: 'rafa', rafa: 'rafa', vylonium: 'dimas', dimas: 'dimas', devconium: 'sari', sari: 'sari', clincoo: 'bagas', bagas: 'bagas' };
-      const low = text.toLowerCase();
-      const mm = low.match(/\b(muzawwied|rafa|vylonium|dimas|devconium|sari|clincoo|bagas)\b/);
-      let resp;
-      if (mm) resp = NAME_MAP[mm[1]];
-      else if (/\b(bug|error|data|user|deploy|kode|code|desain|design|ui|ux|frontend|backend|server|database|statistik|proyek|halaman|issue|github|pr|commit)\b/.test(low)) resp = pickStaff(low);
-      else resp = RESP[(Number(msg.message_id) || 0) % 4];
-      if (c !== resp) return Response.json({ ok: true }); // bukan giliranku, biarkan penjawab yang bicara
-    }
+    if (_isGroup && c !== _resp) return Response.json({ ok: true }); // bukan giliranku, biarkan penjawab yang bicara
 
     // obrolan langsung dengan sang karakter — DENGAN MEMORI NYATA dari papan + aturan anti-halusinasi
     await setStatus(env, c, 'mengetik');
