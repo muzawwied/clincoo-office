@@ -9,7 +9,10 @@ export async function onRequestGet({ env }) {
     try {
       const r = await fetch('https://api.telegram.org/bot' + tok + '/getMe');
       const j = await r.json();
-      out[id] = j.ok ? { name: j.result.first_name || j.result.username || null, username: j.result.username || null } : null;
+      if (!j.ok) { out[id] = null; continue; }
+      const u = j.result.username || '', f = j.result.first_name || '';
+      const nm = (u ? u.replace(/bot$/i, '') : f.replace(/\bBot\b/gi, '').replace(/['']s$/, '').trim()) || null; // [18 Okt] nama bot tanpa kata 'bot'
+      out[id] = { name: nm, username: u || null };
     } catch (e) { out[id] = null; }
   }
   return Response.json({ ok: true, bots: out });
