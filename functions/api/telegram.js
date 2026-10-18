@@ -240,6 +240,23 @@ export async function onRequestPost({ request, env, waitUntil }) {
       return Response.json({ ok: true });
     }
 
+    // [18 Okt, arahan Boss] DI GRUP: hanya SATU penjawab — bukan 4 jawaban
+    // berbeda. Semua bot menghitung penjawab yang sama sendiri-sendiri
+    // (deterministik, tanpa balapan): sebut nama -> karakter itu; topik kerja
+    // (data/bug/desain/frontend) -> petugas relevan via pickStaff; obrolan umum
+    // -> bergilir rapi per pesan.
+    if (String(chatId) === String(groupId || '') && !text.startsWith('/')) {
+      const RESP = ['rafa', 'dimas', 'sari', 'bagas'];
+      const NAME_MAP = { muzawwied: 'rafa', rafa: 'rafa', vylonium: 'dimas', dimas: 'dimas', devconium: 'sari', sari: 'sari', clincoo: 'bagas', bagas: 'bagas' };
+      const low = text.toLowerCase();
+      const mm = low.match(/\b(muzawwied|rafa|vylonium|dimas|devconium|sari|clincoo|bagas)\b/);
+      let resp;
+      if (mm) resp = NAME_MAP[mm[1]];
+      else if (/\b(bug|error|data|user|deploy|kode|code|desain|design|ui|ux|frontend|backend|server|database|statistik|proyek|halaman|issue|github|pr|commit)\b/.test(low)) resp = pickStaff(low);
+      else resp = RESP[(Number(msg.message_id) || 0) % 4];
+      if (c !== resp) return Response.json({ ok: true }); // bukan giliranku, biarkan penjawab yang bicara
+    }
+
     // obrolan langsung dengan sang karakter — DENGAN MEMORI NYATA dari papan + aturan anti-halusinasi
     await setStatus(env, c, 'mengetik');
     let ctx = '';

@@ -1186,11 +1186,13 @@ function docWeights(h){
   return {POST:55, RACIK:15, PERIKSA:15, BELAJAR:10, NGOPI:5}; // [17 Okt] dokter selalu bertugas
 }
 function shiftAct(c, h){
-  const R = c.role;
-  // [17 Okt, arahan Boss] SEMUA karakter duduk kerja sesuai profesinya, tidak jalan-jalan.
-  if(R.guard) return 'JAGA';                                    // satpam: standby di pos jaga
+  const R = c.role, r = Math.random();
+  // [18 Okt, arahan Boss] mayoritas tetap KERJA di meja, tapi kantor terlihat
+  // HIDUP: ~15% sesekali ambil kopi / ke WC / rehat sebentar / nonton.
+  if(R.guard) return r < 0.7 ? 'JAGA' : (r < 0.92 ? 'PATROLI' : 'NGOPI'); // satpam: patroli keliling kelihatan
   if(R.cleaner) return Math.random() < 0.5 ? 'SAPU' : 'PEL';    // Bu Tini: kerja bersih-bersih (itu profesinya)
-  if(R.cs) return 'LAYANI';                                     // Lina: melayani di meja depan
+  if(R.cs) return r < 0.9 ? 'LAYANI' : 'NGOPI';                 // Lina: melayani di meja depan
+  if(r < 0.02) return 'WC'; if(r < 0.09) return 'NGOPI'; if(r < 0.13) return 'NONGKRONG'; if(r < 0.15) return 'NONTON';
   return 'POST';                                                // CEO/developer/desainer/dll: ngetik di meja kerjanya
 }
 function poiList(c, act){
