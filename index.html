@@ -42,6 +42,17 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .panel{width:min(560px,100%);max-height:100%;overflow-y:auto;box-sizing:border-box;padding:12px 12px 14px;border-radius:22px;transform:scale(.94);transition:transform .22s cubic-bezier(.2,.8,.2,1);scrollbar-width:none;touch-action:pan-y}
 .panel::-webkit-scrollbar{display:none}
 .menu.open .panel{transform:scale(1)}
+/* [18 Okt, arahan Boss] CTA Aksi: tombol dihapus; potret tanpa menu; lanskap = sidebar bawah-tengah yang bisa digeser */
+.hbtn.aksi{display:none !important}
+@media (orientation: portrait){ .menu{display:none !important} }
+@media (orientation: landscape){
+  .menu{position:fixed;inset:auto;left:50%;bottom:calc(76px + var(--sb));transform:translateX(-50%);padding:0;background:none;visibility:visible;opacity:1;pointer-events:none;align-items:flex-end;justify-content:flex-start}
+  .menu .panel{pointer-events:auto;width:auto;max-width:min(94vw,720px);border-radius:18px;padding:6px 8px 8px;transform:none !important}
+  .menu .grid{display:flex;flex-wrap:wrap;gap:6px;max-width:min(88vw,680px)}
+  .menu .grid .tile{width:62px;height:54px}
+  .menu .x{display:none}
+  .phead{cursor:grab;touch-action:none;user-select:none}
+}
 .phead{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px;color:#f8fafc;font:800 13px/1 system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}
 .phead .x{width:32px;height:32px;border-radius:50%;border:1px solid var(--hud-bd);background:rgba(255,255,255,.08);color:var(--hud-tx);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -63,7 +74,7 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .nt .r{margin-top:3px;color:#93c5fd;font:700 8.5px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
 
 /* ---------- HUD umum ---------- */
-.clock{position:fixed;left:calc(12px + var(--sl));top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.clock{position:fixed;left:calc(12px + var(--sl));top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:16px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .floorbar{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:4px;padding:4px;border-radius:999px;z-index:5;font:700 13px system-ui,sans-serif}
 .floorbar button{border:0;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer;background:transparent;color:#e2e8f0;touch-action:manipulation;transition:background .15s,color .15s}
 
@@ -692,6 +703,29 @@ function makeCtlUI(){
   ACTS.forEach(a => { const b = tile(a[0], a[2], a[1], () => { ctrlRun(() => doAct(a[0])); setSide(false); }); sideBtns[a[0]] = b; grid.appendChild(b); });
   grid.appendChild(tile('STAND', 'Berdiri', 'Berdiri', () => { ctrlRun(standUp); setSide(false); }));
   side.addEventListener('click', e => { if(e.target === side) setSide(false); });
+  /* [18 Okt] sidebar aksi lanskap: geser manual (pegangan = judul panel), posisi tersimpan */
+  (function(){
+    let px = null, py = 0, ox = 0, oy = 0;
+    try { const p = JSON.parse(localStorage.getItem('office3d_sidePos') || 'null');
+      if (p && isFinite(p.x)) { side.style.left = p.x + 'px'; side.style.top = p.y + 'px'; side.style.bottom = 'auto'; side.style.transform = 'none'; }
+    } catch(e){}
+    head.addEventListener('pointerdown', e => {
+      if (e.target.closest('button')) return;
+      px = e.clientX; py = e.clientY;
+      const r = side.getBoundingClientRect(); ox = r.left; oy = r.top;
+      try { head.setPointerCapture(e.pointerId); } catch(e2){}
+      head.style.cursor = 'grabbing'; e.preventDefault();
+    });
+    head.addEventListener('pointermove', e => {
+      if (px === null) return;
+      const x = Math.max(4, Math.min(window.innerWidth - 60, ox + e.clientX - px));
+      const y = Math.max(4, Math.min(window.innerHeight - 36, oy + e.clientY - py));
+      side.style.left = x + 'px'; side.style.top = y + 'px'; side.style.bottom = 'auto'; side.style.transform = 'none';
+    });
+    const endDrag = () => { if (px === null) return; px = null; head.style.cursor = 'grab';
+      const r = side.getBoundingClientRect(); try { localStorage.setItem('office3d_sidePos', JSON.stringify({ x: r.left, y: r.top })); } catch(e){} };
+    head.addEventListener('pointerup', endDrag); head.addEventListener('pointercancel', endDrag);
+  })();
   ctlUI.appendChild(side);
   window.addEventListener('keydown', e => { if(!pov || (e.target && e.target.tagName === 'INPUT')) return; if(e.key === 'e' || e.key === 'E') setSide(!sideOpen); else if(e.key === 'Escape') setSide(false); });
   document.body.appendChild(ctlUI);
@@ -1234,7 +1268,7 @@ function actDone(){
   const c = curCh;
   if(poi.lie && poi.act === 'TIDUR' && c.wakeAt != null){ if(c.wakeAt - gameMin > 1500) c.wakeAt = gameMin; return gameMin >= c.wakeAt; }
   if(stT >= actDur){
-    if((poi.postOf === c.idx || poi.hold) && onShift(c.role, gameHour()) && Math.random() < 0.8){ stT = 0; actDur = 40 + Math.random() * 50; return false; }
+    if((poi.postOf === c.idx || poi.hold) && onShift(c.role, gameHour())){ stT = 0; actDur = 40 + Math.random() * 50; return false; } // [18 Okt, arahan Boss] di meja sendiri: duduk terus, tidak berdiri lagi
     return true;
   }
   return false;
@@ -2605,7 +2639,7 @@ const PERF = (() => {
   // resolusi render maks 1.5 (mulai 1.25), peta bayangan 1024 + segar tiap 3 frame,
   // bayangan lembut dimatikan. Desktop tetap kaya seperti sebelumnya.
   const mob = touch || window.innerWidth <= 900;
-  return {touch, dpr, low: mob, max: mob ? Math.min(dpr, 1.5) : max, pr: mob ? Math.min(dpr, 1.25) : max, shadow: mob ? 1024 : 4096, shEvery: mob ? 3 : 1, acc: 0, n: 0, cool: 0, fr: 0};
+  return {touch, dpr, low: mob, max: max, pr: max, shadow: mob ? 2048 : 4096, shEvery: mob ? 2 : 1, acc: 0, n: 0, cool: 0, fr: 0}; // [18 Okt, arahan Boss] balikin HD: pixel ratio penuh (maks 2x) + shadow 2048
 })();
 function adaptRes(dt){            // turunkan resolusi bila patah-patah, naikkan lagi bila lancar
   if(document.hidden){ PERF.acc = 0; PERF.n = 0; return; }
@@ -2614,7 +2648,7 @@ function adaptRes(dt){            // turunkan resolusi bila patah-patah, naikkan
   const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0;
   if(PERF.cool > 0){ PERF.cool--; return; }
   let np = PERF.pr;
-  if(avg > 0.026 && np > 0.8) np = Math.max(0.8, np - 0.2);
+  if(avg > 0.026 && np > 1) np = Math.max(1, np - 0.2); // [18 Okt] batas bawah 1x biar nggak blur
   else if(avg < 0.0185 && np < PERF.max) np = Math.min(PERF.max, np + 0.1);
   if(np !== PERF.pr){ PERF.cool = np < PERF.pr ? 4 : 2; PERF.pr = np; renderer.setPixelRatio(np); renderer.setSize(window.innerWidth, window.innerHeight); lastDraw = -1; }
 }
@@ -2624,7 +2658,7 @@ function init(){
   scene.background = C3(0x2b3545);
   camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 500);
   camera.position.set(0, 58, 54);
-  renderer = new THREE.WebGLRenderer({antialias: !(PERF.touch || window.innerWidth <= 900), powerPreference: 'high-performance'});
+  renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance'}); // [18 Okt] antialias aktif di semua perangkat
   renderer.setPixelRatio(PERF.pr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -2664,6 +2698,21 @@ function init(){
   
   gameMin = realMin();
   buildNav(); buildPOIs(); makeChars();
+  /* [18 Okt, arahan Boss] karakter yang terhubung bot: namanya = nama bot (tanpa kata 'bot'), ambil otomatis dari server */
+  fetch('/api/botinfo').then(r => r.json()).then(j => {
+    if (!j || !j.ok || !j.bots) return;
+    const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3 };
+    let changed = false;
+    for (const id in MAP) {
+      const b = j.bots[id]; if (!b || !b.name) continue;
+      const nm = String(b.name).replace(/\bbot\b/gi, '').replace(/[_\-]+$/, '').trim().slice(0, 14);
+      if (!nm || nm === LOOKS[MAP[id]].name) continue;
+      LOOKS[MAP[id]].name = nm;
+      CHARS.forEach(c => { if (c.idx === MAP[id]) { c.name = nm; c.nameEl.textContent = nm; } });
+      changed = true;
+    }
+    if (changed) saveNames();
+  }).catch(() => {});
   makeCtlUI(); makeClock(); makeOrient();
 
   makeUI();
