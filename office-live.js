@@ -63,9 +63,9 @@
     document.head.appendChild(st);
     const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
     const SVG_SITE = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-    statA = document.createElement('div'); statA.className = 'ol-stat'; statA.title = 'User Clincoo terdaftar (real-time)';
+    statA = document.createElement('div'); statA.className = 'ol-stat'; statA.title = 'User terdaftar di clincoo.buzz (real-time)';
     statA.innerHTML = SVG_USER + '<span id="ol-users">0</span>';
-    statB = document.createElement('div'); statB.className = 'ol-stat'; statB.title = 'Situs terpublikasi (Cloudflare Pages)';
+    statB = document.createElement('div'); statB.className = 'ol-stat'; statB.title = 'Situs terpublikasi lewat clincoo.buzz';
     statB.innerHTML = SVG_SITE + '<span id="ol-sites">0</span>';
     document.body.append(statA, statB);
     const place = () => {
