@@ -70,8 +70,8 @@
     document.body.append(statA, statB);
     const place = () => {
       const r = clockRef.getBoundingClientRect();
-      statA.style.left = (r.right + 10) + 'px';
-      statB.style.left = (r.right + 10 + statA.offsetWidth + 14) + 'px';
+      statA.style.left = (r.right + 6) + 'px';
+      statB.style.left = (r.right + 6 + statA.offsetWidth + 6) + 'px';
     };
     place(); window.addEventListener('resize', place); setInterval(place, 20000);
     // data nyata dari /api/stats (database + Cloudflare), refresh tiap 60 detik
