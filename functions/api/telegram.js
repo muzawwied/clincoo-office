@@ -24,6 +24,16 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (!chatId) return Response.json({ ok: true });
 
     await env.DB.prepare('INSERT INTO office_chat (char, chat_id) VALUES (?, ?) ON CONFLICT(char) DO UPDATE SET chat_id = ?2').bind(c, String(chatId)).run();
+    // [18 Okt, arahan Boss] catat user Clincoo (real-time) setiap ada yang chat bot
+    try {
+      const fu = msg.from || {};
+      if (fu.id) {
+        await env.DB.prepare('CREATE TABLE IF NOT EXISTS office_users (id TEXT PRIMARY KEY, name TEXT, first_seen REAL, last_seen REAL)').run();
+        const now = Date.now() / 1000;
+        await env.DB.prepare('INSERT INTO office_users (id, name, first_seen, last_seen) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, last_seen = excluded.last_seen')
+          .bind(String(fu.id), String(fu.first_name || fu.username || 'user'), now, now).run();
+      }
+    } catch (e) {}
 
     // CEO (pemilik) berbicara di kantor: pesan user tampil via avatar Vylonium
     if (text && !text.startsWith('/')) await logMsg(env, 'user', c, text);
