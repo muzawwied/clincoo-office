@@ -42,17 +42,9 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .panel{width:min(560px,100%);max-height:100%;overflow-y:auto;box-sizing:border-box;padding:12px 12px 14px;border-radius:22px;transform:scale(.94);transition:transform .22s cubic-bezier(.2,.8,.2,1);scrollbar-width:none;touch-action:pan-y}
 .panel::-webkit-scrollbar{display:none}
 .menu.open .panel{transform:scale(1)}
-/* [18 Okt, arahan Boss] CTA Aksi: tombol dihapus; potret tanpa menu; lanskap = sidebar bawah-tengah yang bisa digeser */
+/* [18 Okt, arahan Boss] pop-up aksi dihapus total */
 .hbtn.aksi{display:none !important}
-@media (orientation: portrait){ .menu{display:none !important} }
-@media (orientation: landscape){
-  .menu{position:fixed;inset:auto;left:50%;bottom:calc(76px + var(--sb));transform:translateX(-50%);padding:0;background:none;visibility:visible;opacity:1;pointer-events:none;align-items:flex-end;justify-content:flex-start}
-  .menu .panel{pointer-events:auto;width:auto;max-width:min(94vw,720px);border-radius:18px;padding:6px 8px 8px;transform:none !important}
-  .menu .grid{display:flex;flex-wrap:wrap;gap:6px;max-width:min(88vw,680px)}
-  .menu .grid .tile{width:62px;height:54px}
-  .menu .x{display:none}
-  .phead{cursor:grab;touch-action:none;user-select:none}
-}
+.menu{display:none !important}
 .phead{display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px;color:#f8fafc;font:800 13px/1 system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}
 .phead .x{width:32px;height:32px;border-radius:50%;border:1px solid var(--hud-bd);background:rgba(255,255,255,.08);color:var(--hud-tx);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -74,7 +66,7 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .nt .r{margin-top:3px;color:#93c5fd;font:700 8.5px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
 
 /* ---------- HUD umum ---------- */
-.clock{position:fixed;left:calc(12px + var(--sl));top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:16px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.clock{position:fixed;left:calc(12px + var(--sl));top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:3px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .floorbar{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:4px;padding:4px;border-radius:999px;z-index:5;font:700 13px system-ui,sans-serif}
 .floorbar button{border:0;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer;background:transparent;color:#e2e8f0;touch-action:manipulation;transition:background .15s,color .15s}
 
@@ -133,7 +125,7 @@ const reach = [0, 1, 2].map(() => new Uint8Array(GW * GH));
 const blkM = [0, 1, 2].map(() => new Uint8Array(GW * GH)), hgt = [0, 1, 2].map(() => new Float32Array(GW * GH)), RM = 0.24;
 const seatReg = [];
 let zv = 0;
-const STAIRS = [{x:-17.5, zb:19, zt:11, lo:0, hi:1}, {x:24.5, zb:5, zt:-3, lo:1, hi:2}];
+const STAIRS = [{x:-17.5, zb:19, zt:11, lo:0, hi:1}, {x:17.5, zb:-6.5, zt:-10.5, lo:1, hi:2}]; // [18 Okt, arahan Boss] tangga L2->L3 dipindah dari dalam CINEMA ke Lab QA, mendarat di koridor Lantai 3
 STAIRS.forEach(S => { S.nb = {x:S.x, z:S.zb + 0.3}; S.nt = {x:S.x, z:S.zt - 0.6}; });
 let curStair = null;
 let player, rig, tors, P = {}, POIS = [], wsSeats = [], curFloor = 0, viewFloor = 1;
@@ -703,29 +695,7 @@ function makeCtlUI(){
   ACTS.forEach(a => { const b = tile(a[0], a[2], a[1], () => { ctrlRun(() => doAct(a[0])); setSide(false); }); sideBtns[a[0]] = b; grid.appendChild(b); });
   grid.appendChild(tile('STAND', 'Berdiri', 'Berdiri', () => { ctrlRun(standUp); setSide(false); }));
   side.addEventListener('click', e => { if(e.target === side) setSide(false); });
-  /* [18 Okt] sidebar aksi lanskap: geser manual (pegangan = judul panel), posisi tersimpan */
-  (function(){
-    let px = null, py = 0, ox = 0, oy = 0;
-    try { const p = JSON.parse(localStorage.getItem('office3d_sidePos') || 'null');
-      if (p && isFinite(p.x)) { side.style.left = p.x + 'px'; side.style.top = p.y + 'px'; side.style.bottom = 'auto'; side.style.transform = 'none'; }
-    } catch(e){}
-    head.addEventListener('pointerdown', e => {
-      if (e.target.closest('button')) return;
-      px = e.clientX; py = e.clientY;
-      const r = side.getBoundingClientRect(); ox = r.left; oy = r.top;
-      try { head.setPointerCapture(e.pointerId); } catch(e2){}
-      head.style.cursor = 'grabbing'; e.preventDefault();
-    });
-    head.addEventListener('pointermove', e => {
-      if (px === null) return;
-      const x = Math.max(4, Math.min(window.innerWidth - 60, ox + e.clientX - px));
-      const y = Math.max(4, Math.min(window.innerHeight - 36, oy + e.clientY - py));
-      side.style.left = x + 'px'; side.style.top = y + 'px'; side.style.bottom = 'auto'; side.style.transform = 'none';
-    });
-    const endDrag = () => { if (px === null) return; px = null; head.style.cursor = 'grab';
-      const r = side.getBoundingClientRect(); try { localStorage.setItem('office3d_sidePos', JSON.stringify({ x: r.left, y: r.top })); } catch(e){} };
-    head.addEventListener('pointerup', endDrag); head.addEventListener('pointercancel', endDrag);
-  })();
+  
   ctlUI.appendChild(side);
   window.addEventListener('keydown', e => { if(!pov || (e.target && e.target.tagName === 'INPUT')) return; if(e.key === 'e' || e.key === 'E') setSide(!sideOpen); else if(e.key === 'Escape') setSide(false); });
   document.body.appendChild(ctlUI);
@@ -976,7 +946,7 @@ function clearPovShell(){
   roofMats.forEach(m => { m.opacity = 0.2; m.transparent = true; m.depthWrite = false; m.needsUpdate = true; });
 }
 function shell3(){
-  const hole = {x1:23.4, x2:25.6, z1:-3, z2:5};
+  const hole = {x1:16.5, x2:18.5, z1:-10.5, z2:-6.5}; // [18 Okt] mengikuti posisi tangga baru
   const piece = (a, b, e, d, y, h, c) => B(scene, e - a, h, d - b, c, (a + e) / 2, y, (b + d) / 2, {cast:false});
   [[-0.13, 0.1, 0x7d7a74], [-0.65, 0.52, 0x5f6978]].forEach(a => {
     piece(-28, -20, hole.x1, 8, a[0], a[1], a[2]); piece(hole.x2, -20, 28, 8, a[0], a[1], a[2]);
@@ -993,15 +963,16 @@ function floor3(){
   curFloor = 2; const PI = Math.PI, SH = 0.52 * K, RW = 5.6;
   const FL = [0xc9a574, 0xb08968, 0xa3b18a, 0xcdb4db, 0xbfd4ff, 0xe8c7a1, 0xd9c8a9, 0xb7c4cf, 0xc8d5b9, 0xd6cdbd];
   for(let i = 0; i < 10; i++) floorR(-28 + RW * i, -20, -28 + RW * (i + 1), -12, FL[i], 0.5);
-  floorR(-28, -12, 28, -9, 0x8c8578, 0.6); floorR(-28, -9, -8, 8, 0xb08968, 0.5); floorR(-8, -9, 2, 8, 0xdbe7ee, 0.2); floorR(2, -9, 14, 8, 0xe9f3f5, 0.3);
-  const hl = {x1:23.4, x2:25.6, z1:-3, z2:5};
-  floorR(14, -9, hl.x1, 8, 0xcbb8a0, 0.5); floorR(hl.x2, -9, 28, 8, 0xcbb8a0, 0.5); floorR(hl.x1, -9, hl.x2, hl.z1, 0xcbb8a0, 0.5); floorR(hl.x1, hl.z2, hl.x2, 8, 0xcbb8a0, 0.5);
+  floorR(-28, -12, 16.5, -9, 0x8c8578, 0.6); floorR(18.5, -12, 28, -9, 0x8c8578, 0.6); floorR(16.5, -12, 18.5, -10.5, 0x8c8578, 0.6); // [18 Okt] koridor dengan takik lubang tangga
+  floorR(-28, -9, -8, 8, 0xb08968, 0.5); floorR(-8, -9, 2, 8, 0xdbe7ee, 0.2); floorR(2, -9, 14, 8, 0xe9f3f5, 0.3);
+  const hl = {x1:16.5, x2:18.5, z1:-10.5, z2:-6.5}; // [18 Okt] lubang tangga dari Lab QA
+  floorR(14, -9, hl.x1, 8, 0xcbb8a0, 0.5); floorR(hl.x2, -9, 28, 8, 0xcbb8a0, 0.5); floorR(hl.x1, hl.z2, hl.x2, 8, 0xcbb8a0, 0.5);
   const dc = []; for(let i = 0; i < 10; i++) dc.push(-28 + RW * i + RW / 2);
   for(let i = 1; i < 10; i++) wall(-28 + RW * i, -20, -28 + RW * i, -12);
   wall(-28, -12, 28, -12, {doors:dc, dw:1.8});
   wall(-28, -9, -8, -9, {doors:[-18], dw:2.4}); wall(-8, -9, 2, -9, {h:2.84, t:0.15, doors:[-3], dw:1.4}); wall(2, -9, 14, -9, {h:2.0});
   wall(-8, -9, -8, 8, {h:2.84, t:0.15}); wall(2, -9, 2, 8, {h:2.84, t:0.15}); wall(14, -9, 14, 8, {h:2.0, doors:[-3.2], dw:1.8});
-  stairs(24.5, 5, -3, 2.0, FH, 12, -FH);
+  stairs(17.5, -6.5, -10.5, 2.0, FH, 12, -FH);
   // kamar tidur: satu per penghuni, lemari netral, meja belajar
   for(let i = 0; i < 10; i++){
     const x0 = -28 + RW * i, x1 = x0 + RW, own = i < 9 ? ROOM_OWN[i] : -1, bedX = x0 + 1.2, bedZ = -18.3, wx = x1 - 0.55, wz = -17.0;
@@ -1065,7 +1036,7 @@ function floor3(){
   // aula timur
   tv(14.3, 0.9, 3.0, 2.6, 1.5, screenT[2], PI / 2); sofa(19.5, 3.0, PI / 2, 2.6, 0xfb7185); rtable(16.5, 3.0, 0.55, 0.5, 0xc9a574);
   plant(15.5, -8, 0.9); plant(27, 6.5, 1.0); shelf(27.6, 6.0, -PI / 2, 2.2, 1.6, {c:0x7b8494, pal:[0xe7e2d8, 0x93c5fd, 0xfde68a]});
-  beanbag(17.5, -6.2, 0xf472b6); beanbag(19, -5.4, 0x4f7cff, 0.9);
+  beanbag(21, -6.4, 0xf472b6); beanbag(22.2, -5.2, 0x4f7cff, 0.9); // [18 Okt] digeser: area lubang tangga
   poiQ.push(() => { for(let i = 0; i < 3; i++) mkPoi('NONTON', 2, 19.435, 3.0 - ((i + 0.5) / 3 - 0.5) * 3.38, -PI / 2, 0.58, {lean:1}); });
 }
 function updFx(dt){
@@ -1905,6 +1876,19 @@ function floor1(){ curFloor = 0;
   B(scene, 0.06, 0.02, 0.1, 0x334155, -23.82, 1.21, 12.58, {cast:false});    // mouse
   chair(-23.3, 11.5, Math.PI, 0x4f7cff);
   pl(scene, 4.2, 1.05, logoT, -27.8, 2.4, 8.5, Math.PI / 2, true);
+  /* [18 Okt, arahan Boss] neon box huruf timbul CLINCOO di dekat meja CS */
+  const neonT = tex(640, 200, (g, w, h) => {
+    g.fillStyle = '#0a0e18'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(34,211,238,.55)'; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '800 100px system-ui, sans-serif';
+    g.shadowColor = '#22d3ee'; g.shadowBlur = 42; g.fillStyle = '#a5f3fc';
+    g.fillText('CLINCOO', w / 2, h / 2 + 6);
+    g.shadowBlur = 14; g.fillStyle = '#ecfeff'; g.fillText('CLINCOO', w / 2, h / 2 + 6);
+  });
+  B(scene, 7.4, 2.15, 0.22, 0x0a0e18, -27.72, 2.35, 13, {r:0.12});
+  pl(scene, 7.0, 1.9, neonT, -27.58, 2.35, 13, Math.PI / 2, true); // huruf timbul sedikit di depan box
+  const neonL = new THREE.PointLight(0x22d3ee, 1.0, 10); neonL.position.set(-26.4, 2.5, 13); scene.add(neonL);
   sofa(-26.2, 2.5, -Math.PI / 2, 2.4, 0x4f7cff);
   sofa(-19.3, 2.5, Math.PI / 2, 2.4, 0x4f7cff);
   B(scene, 1.4, 0.05, 0.8, 0xb08a58, -22.7, 0.42, 2.5, {r:0.3, cast:true});
@@ -2160,7 +2144,7 @@ function floor2(){ curFloor = 1;
   rail(-19, 11, -19, 19);
   rail(-19, 19, -16, 19);
   stairs(-17.5, 19, 11, 2.0, FH, 12, -FH);
-  stairs(24.5, 5, -3, 2.0, FH, 12, 0);
+  stairs(17.5, -6.5, -10.5, 2.0, FH, 12, 0); // [18 Okt] tangga ke Lantai 3 kini di Lab QA
 
   /* --- BOARDROOM --- */
   { const cx = -20, tz = -13;
@@ -2384,9 +2368,9 @@ function buildAll(){
   [-28, -14, 0, 14, 28].forEach(x => B(scene, 0.7, FH, 0.7, 0x4a5362, x, 0, 20));
   g2 = new THREE.Group(); g2.position.y = FH; real.add(g2); mkExt(g2); scene = g2; shell(true); floor2();
   g3 = new THREE.Group(); g3.position.y = 2 * FH; real.add(g3); mkExt(g3); scene = g3; shell3(); floor3();
-  scene = g2; bathN(-25, 13, -19.4, 17.8, -23.5, 1);
+  scene = g2; // [18 Okt, arahan Boss] kamar mandi liar di stair hall Lantai 2 dihapus
   ceilG[0] = mkCeil(g1, [[-28, -20, -19, 20], [-16, -20, 28, 20], [-19, -20, -16, 11], [-19, 19, -16, 20]]);
-  ceilG[1] = mkCeil(g2, [[-28, -20, 10, 20], [10, -20, 23.4, 8], [25.6, -20, 28, 8], [23.4, -20, 25.6, -3], [23.4, 5, 25.6, 8]]);
+  ceilG[1] = mkCeil(g2, [[-28, -20, 10, 20], [10, -20, 16.5, 8], [18.5, -20, 28, 8], [16.5, -20, 18.5, -10.5], [16.5, -6.5, 18.5, 8]]); // [18 Okt] lubang plafon mengikuti tangga baru
   ceilG[2] = mkCeil(g3, [[-28, -20, 28, 8]]);
   extG[0] = g1.userData.ext; extG[1] = g2.userData.ext; extG[2] = g3.userData.ext;
   scene = real;
@@ -2883,6 +2867,6 @@ window.__initApp = init;
 })();
 
 </script>
-<script src="office-live.js?v=20261018a" defer></script>
+<script src="office-live.js?v=20261018b" defer></script>
 </body>
 </html>
