@@ -1,7 +1,7 @@
 // GET /api/stats -> data card header Clincoo Office
-// [18 Okt, arahan Boss] angka ASLI dari platform clincoo.buzz:
-//   users = user terdaftar di clincoo.buzz (tabel auth_users di clincoo-db)
-//   sites = situs yang pernah dipublikasikan lewat clincoo.buzz (pages_project di project settings)
+// [18 Okt, arahan Boss] angka ASLI dari platform clincoo.buzz (database clincoo-db):
+//   users = user terdaftar di clincoo.buzz (tabel auth_users)
+//   sites = situs yang pernah dipublikasikan lewat clincoo.buzz (pages_project di settings tiap proyek)
 const CLINCOO_DB = '49b6fed3-a237-46e3-ab2b-b0de31cc862b';
 let CACHE = { t: 0, users: 0, sites: 0 };
 export async function onRequestGet({ env }) {
@@ -18,10 +18,15 @@ export async function onRequestGet({ env }) {
   let users = 0, sites = 0;
   try { users = (await cf('SELECT COUNT(*) AS n FROM auth_users'))[0].n; } catch (e) {}
   try {
-    const tabs = await cf("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'p\\_%\\_project\\_settings' ESCAPE '\\'");
-    const parts = tabs.map(t => 'SELECT key, value FROM ' + t.name).concat(['SELECT key, value FROM project_settings']).join(' UNION ALL ');
-    const rows = await cf("SELECT COUNT(DISTINCT value) AS n FROM (" + parts + ") WHERE key='pages_project' AND value IS NOT NULL AND TRIM(value) <> ''");
-    sites = rows[0].n;
+    // daftar tabel settings tiap proyek, lalu cek pages_project per batch (batas UNION di D1)
+    const tabs = (await cf("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'p\\_%\\_project\\_settings' ESCAPE '\\'")).map(r => r.name);
+    const found = new Set();
+    for (let i = 0; i < tabs.length; i += 40) {
+      const parts = tabs.slice(i, i + 40).map(t => 'SELECT key, value FROM ' + t).concat(['SELECT key, value FROM project_settings']).join(' UNION ALL ');
+      const rows = await cf("SELECT DISTINCT value AS v FROM (" + parts + ") WHERE key='pages_project' AND value IS NOT NULL AND TRIM(value) <> ''");
+      rows.forEach(r => found.add(r.v));
+    }
+    sites = found.size;
   } catch (e) {
     try { sites = (await cf("SELECT COUNT(DISTINCT value) AS n FROM project_settings WHERE key='pages_project' AND TRIM(IFNULL(value,'')) <> ''"))[0].n; } catch (e2) {}
   }
