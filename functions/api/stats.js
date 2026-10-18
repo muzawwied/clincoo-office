@@ -1,7 +1,7 @@
 // GET /api/stats -> data card header Clincoo Office
 // [18 Okt, arahan Boss] angka ASLI dari platform clincoo.buzz (database clincoo-db):
 //   users = user terdaftar di clincoo.buzz (auth_users)
-//   sites = situs terpublikasi lewat clincoo.buzz (pages_project di settings proyek yang masih aktif)
+//   sites = situs yang pernah dipublikasikan lewat clincoo.buzz - SEMUA proyek, termasuk proyek lama/terhapus
 const CLINCOO_DB = '49b6fed3-a237-46e3-ab2b-b0de31cc862b';
 let CACHE = { t: 0, users: 0, sites: 0 };
 export async function onRequestGet({ env }) {
@@ -19,11 +19,8 @@ export async function onRequestGet({ env }) {
   try {
     // 1) user terdaftar
     users = (await cf('SELECT COUNT(*) AS n FROM auth_users'))[0].n;
-    // 2) situs terpublikasi: proyek aktif yang punya pages_project
-    const ids = await cf('SELECT id FROM user_projects');
-    const tabs = await cf("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'p\\_%\\_project\\_settings' ESCAPE '\\'");
-    const exist = new Set(tabs.map(r => r.name));
-    const cands = ids.map(r => 'p_' + r.id + '_project_settings').filter(t => exist.has(t)).concat(['project_settings']);
+    // 2) situs terpublikasi: SEMUA tabel settings proyek (aktif + lama/terhapus) yang punya pages_project
+    const cands = (await cf("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'p\\_%\\_project\\_settings' ESCAPE '\\'")).map(r => r.name).concat(['project_settings']);
     const batches = [];
     for (let i = 0; i < cands.length; i += 5) batches.push(cands.slice(i, i + 5));
     const found = new Set();
