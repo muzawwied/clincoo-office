@@ -43,6 +43,26 @@ export function resolveName(n) {
 }
 export function persona(id) { const k = String(id || '').toLowerCase(); return PERSONAS[k] || SUPPORT_PERSONAS[k] || null; }
 
+// [18 Okt, arahan Boss] nama persona = nama bot Telegram resminya (tanpa kata 'bot'); cache per isolate
+let BOT_NAMES_DONE = false;
+export async function enrichBotNames(env) {
+  if (BOT_NAMES_DONE) return;
+  BOT_NAMES_DONE = true;
+  for (const id of Object.keys(PERSONAS)) {
+    const tok = env['CHAR_' + id.toUpperCase() + '_TOKEN'];
+    if (!tok) continue;
+    try {
+      const r = await fetch('https://api.telegram.org/bot' + tok + '/getMe');
+      const j = await r.json();
+      if (!j.ok) continue;
+      const raw = j.result.first_name || j.result.username;
+      if (!raw) continue;
+      const nm = String(raw).replace(/\bBot\b/gi, '').replace(/[_\-]+$/, '').trim();
+      if (nm) PERSONAS[id].name = nm.slice(0, 20);
+    } catch (e) {}
+  }
+}
+
 // ===== SETTINGS RUNTIME (dari dashboard, fallback ke env) =====
 const SET_CACHE = {};
 export async function getSetting(env, k) {
