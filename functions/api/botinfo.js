@@ -1,6 +1,6 @@
 // GET /api/botinfo -> nama resmi tiap bot karakter dari Telegram (getMe)
 // [18 Okt, arahan Boss] nama karakter di web = nama botnya (tanpa kata 'bot')
-const CHARS_BOTS = ['rafa', 'dimas', 'sari', 'bagas'];
+const CHARS_BOTS = ['rafa', 'dimas', 'sari'];
 export async function onRequestGet({ env }) {
   const out = {};
   for (const id of CHARS_BOTS) {

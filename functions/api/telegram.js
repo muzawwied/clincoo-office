@@ -70,10 +70,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const _isGroup = String(chatId) === String(groupId || '') && !text.startsWith('/');
     let _resp = c;
     if (_isGroup) {
-      const RESP = ['rafa', 'dimas', 'sari', 'bagas'];
-      const NAME_MAP = { muzawwied: 'rafa', rafa: 'rafa', vylonium: 'dimas', dimas: 'dimas', devconium: 'sari', sari: 'sari', clincoo: 'bagas', bagas: 'bagas' };
+      const RESP = ['rafa', 'dimas', 'sari'];
+      const NAME_MAP = { muzawwied: 'rafa', rafa: 'rafa', vylonium: 'dimas', dimas: 'dimas', devconium: 'sari', sari: 'sari' };
       const low = text.toLowerCase();
-      const mm = low.match(/\b(muzawwied|rafa|vylonium|dimas|devconium|sari|clincoo|bagas)\b/);
+      const mm = low.match(/\b(muzawwied|rafa|vylonium|dimas|devconium|sari)\b/);
       if (mm) _resp = NAME_MAP[mm[1]];
       else if (/\b(bug|error|data|user|deploy|kode|code|desain|design|ui|ux|frontend|backend|server|database|statistik|proyek|halaman|issue|github|pr|commit)\b/.test(low)) _resp = pickStaff(low);
       else _resp = RESP[(Number(msg.message_id) || 0) % 4];
@@ -84,7 +84,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (text && !text.startsWith('/') && (!_isGroup || c === _resp)) await logMsg(env, 'user', c, text);
 
     // ===== KERJAAAN NYATA: GitHub =====
-    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari|bagas)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
+    const gi = text.match(/^(?:suruh(?:in)?\s+|panggil(?:in)?\s+|ajak\s+)?(rafa|dimas|sari)?[,.;!\s]*(?:bikin|buat|buka|hmm.*?)?\s*(?:bikin|buat|buka)?\s*(?:issue|tiket|task|tugas)\s*[:\-]?\s*(.+)$/i);
     if (gi) {
       const who = (gi[1] || c).toLowerCase();
       const title = gi[2].trim().slice(0, 300);
@@ -111,7 +111,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       await tgSend(token, chatId, `📋 <b>${kind === 'pr' ? 'PR terbuka' : 'Issue terbuka'}:</b>\n${lines}`);
       return Response.json({ ok: true });
     }
-    const gr = text.match(/^(?:suruh(?:in)?\s+)?(rafa|dimas|sari|bagas)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
+    const gr = text.match(/^(?:suruh(?:in)?\s+)?(rafa|dimas|sari)?\s*review\s+(?:pr|pull\s*request)?\s*#?(\d+)/i);
     if (gr) {
       const who = (gr[1] || c).toLowerCase();
       const n = Number(gr[2]);
@@ -166,10 +166,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // ===== PERINTAH: meeting/rapat nyata =====
     if (/rapat|meet(?:ing|in|t)|meating|metting/i.test(text) && text.length <= 140 && !text.includes('?')) {
       const uniq = [];
-      for (const n of (text.toLowerCase().match(/\b(rafa|dimas|sari|bagas)\b/g) || []))
+      for (const n of (text.toLowerCase().match(/\b(rafa|dimas|sari)\b/g) || []))
         if (!uniq.includes(n)) uniq.push(n);
       let a = uniq[0] || c;               // tanpa nama: bot ini yang rapat
-      let b = uniq[1] || (a !== c ? c : ['rafa','dimas','sari','bagas'].filter(x => x !== a)[Math.floor(Math.random() * 3)]);
+      let b = uniq[1] || (a !== c ? c : ['rafa','dimas','sari'].filter(x => x !== a)[Math.floor(Math.random() * 2)]);
       const tm = text.match(/(?:soal|tentang|ttg|about)\s+(.+)$/i);
       const topic = tm ? tm[1].trim().slice(0, 200) : [
         'fitur baru buat Clincoo Office',
@@ -197,7 +197,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // ===== PERINTAH: panggil/suruh <nama> [ke <tempat>] =====
-    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(rafa|dimas|sari|bagas)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
+    const cmd = text.match(/^(?:panggil(?:in)?|suruh|tolong\s+panggil)\s+(rafa|dimas|sari)\b(?:\s+(?:ke|pergi\s+ke|menuju)\s+([a-z]+))?/i);
     if (cmd) {
       const target = cmd[1].toLowerCase();
       let place = cmd[2] ? (PLACE_WORDS[cmd[2].toLowerCase()] || null) : 'kantor';
@@ -233,7 +233,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     // pola ajak rekan: "ke <nama> [:] <topik>" / "@<nama> <topik>"
-    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(rafa|dimas|sari|bagas)\b[\s:,-]*(.*)$/i) || text.match(/^@(rafa|dimas|sari|bagas)\s+(.*)$/i);
+    const m = text.match(/^(?:ke|kepada|ajak|dengan|sama)\s+(rafa|dimas|sari)\b[\s:,-]*(.*)$/i) || text.match(/^@(rafa|dimas|sari)\s+(.*)$/i);
     if (m && m[1].toLowerCase() !== c) {
       const target = m[1].toLowerCase();
       const topic = (m[2] || 'pekerjaan hari ini').trim();

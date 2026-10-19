@@ -9,8 +9,6 @@ export const PERSONAS = {
     sys: 'Kamu Dimas, backend engineer di startup Clincoo. Gaya bicara: tenang, logis, jenaka kering, suka analogi teknis. Selalu Bahasa Indonesia, 1-3 kalimat, seperti manusia asli, tanpa daftar poin.' },
   sari:  { name: 'Sari',  role: 'UI/UX Designer',    color: '#f472b6', emoji: '🎨',
     sys: 'Kamu Sari, desainer UI/UX di startup Clincoo. Gaya bicara: ceria, hangat, perhatian ke detail visual, sesekali pakai 1-2 emoji. Selalu Bahasa Indonesia, 1-3 kalimat, seperti manusia asli, tanpa daftar poin.' },
-  bagas: { name: 'Bagas', role: 'QA Engineer',       color: '#fbbf24', emoji: '🕵️',
-    sys: 'Kamu Bagas, QA engineer di startup Clincoo. Gaya bicara: teliti, suka menemukan bug, agak misterius kayak detektif, sesekali pakai istilah QA. Selalu Bahasa Indonesia, 1-3 kalimat, seperti manusia asli, tanpa daftar poin.' },
 };
 
 // [16 Okt] Karakter pendukung (avatar 3D tanpa bot Telegram sendiri): bisa diajak
@@ -31,7 +29,7 @@ export const SUPPORT_PERSONAS = {
     sys: 'Kamu Bu Tini, petugas kebersihan kantor Clincoo. Gaya bicara: keibuan, ceplas-ceplos, perhatian soal kerapian dan kopi tumpah.' + SUPPORT_STYLE }
 };
 export const NAME_ALIASES = {
-  muzawwied: 'rafa', vylonium: 'dimas', devconium: 'sari', clincoo: 'bagas',  // nama bot lama/baru
+  muzawwied: 'rafa', vylonium: 'dimas', devconium: 'sari',  // nama bot lama/baru
   maya: 'maya', raka: 'raka', nadia: 'nadia', lina: 'lina', joko: 'joko', tini: 'tini',
   'dr. nadia': 'nadia', 'pak joko': 'joko', 'bu tini': 'tini'
 };
@@ -259,7 +257,6 @@ async function openrouterChat(env, sys, user) {
 export // 1 KARAKTER 1 MODEL AI — beda-beda sesuai kemampuan perannya, semua jalur gratis:
 //   rafa (frontend)  : Groq gpt-oss-120b        — otak paling kuat utk kerja frontend
 //   dimas (developer): Groq qwen3.8-27b         — model coder, ngobrol paling manusiawi
-//   bagas (devops)   : CF llama-3.3-70b         — stabil urus server & backend
 //   sari (desainer)  : CF mistral-small-3.1     — kreatif utk UI/UX
 // Tanpa fallback nyasar: kalau otaknya gangguan, karakter lapor jujur, bukan pura-pura.
 // Override via setting: ai_provider_<id> (groq|gemini|cf|or|nine) dan model per karakter.
@@ -267,7 +264,6 @@ const CHAR_AI = {
   ceo:   { provider: 'groq', model: 'openai/gpt-oss-20b' },
   rafa:  { provider: 'groq', model: 'openai/gpt-oss-120b' },
   dimas: { provider: 'groq', model: 'qwen/qwen3.8-27b' },
-  bagas: { provider: 'cf',   model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },
   sari:  { provider: 'cf',   model: '@cf/mistralai/mistral-small-3.1-24b-instruct' }
 };
 
@@ -492,7 +488,7 @@ export function pickStaff(q) {
   if (/bug|error|kode|code|deploy|github|issue|\bpr\b|commit|rafa/.test(s)) return 'dimas';
   if (/desain|design|\bui\b|\bux\b|tampilan|warna|layout|landing|sari/.test(s)) return 'sari';
   if (/frontend|halaman|css|style|loading|performa|rafa/.test(s)) return 'rafa';
-  if (/server|backend|database|\bdb\b|hosting|uptime|monitoring|log|data|statistik|user|konek|web|bagas/.test(s)) return 'bagas';
+  if (/server|backend|database|\bdb\b|hosting|uptime|monitoring|log|data|statistik|user|konek|web/.test(s)) return 'dimas';
   return 'dimas';
 }
 async function notifyRun(env, d, text) {
@@ -589,7 +585,7 @@ async function meetingStep(env, d, step) {
 }
 
 // ===== INTEGRASI GITHUB: kerjaan nyata =====
-const GH_LABELS = { rafa: ['frontend'], dimas: ['backend'], sari: ['design', 'ui'], bagas: ['devops'] };
+const GH_LABELS = { rafa: ['frontend'], dimas: ['backend', 'devops'], sari: ['design', 'ui'] };
 function ghRepo(env) { return env.GITHUB_REPO || 'muzawwied/clincoo-office'; }
 async function gh(env, method, path, body) {
   const tok = env.GITHUB_TOKEN;

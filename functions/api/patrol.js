@@ -29,14 +29,14 @@ export async function onRequestPost({ request, env, waitUntil }) {
     } catch (e) { siteOk = false; httpCode = 0; }
     if (!siteOk) {
       if (await once('patrol_site_err', 15)) {
-        await logMsg(env, 'bagas', 'user', 'Server Clincoo bermasalah (HTTP ' + httpCode + '). Aku cek backend & server sekarang.', 'goto', 'meja');
+        await logMsg(env, 'dimas', 'user', 'Server Clincoo bermasalah (HTTP ' + httpCode + '). Aku cek backend & server sekarang.', 'goto', 'meja');
         await logMsg(env, 'dimas', 'user', 'Web down/bermasalah — aku siaga ngefix di meja kerja.', 'goto', 'meja');
         events.push('site_error');
       }
     }
 
     // --- 2. KESEHATAN KARAKTER (real): webhook bot Telegram ---
-    const CHARS = ['rafa', 'dimas', 'sari', 'bagas'];
+    const CHARS = ['rafa', 'dimas', 'sari'];
     for (const id of CHARS) {
       const tok = env['CHAR_' + id.toUpperCase() + '_TOKEN'];
       if (!tok) continue;
@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
           if (await once('patrol_bot_' + id, 20)) {
             await logMsg(env, id, 'user', '(' + id + ' error: ' + (err ? String(err).slice(0, 80) : (ok ? 'antrian ' + pending + ' tertahan' : 'webhook lepas')) + ' — masuk ruang sakit)', 'goto', 'sakit');
             await logMsg(env, 'nadia', 'user', 'Karakter ' + id + ' kena error. Aku periksa & rawat di ruang sakit.', 'goto', 'sakit');
-            await logMsg(env, 'bagas', 'user', 'Webhook ' + id + ' bermasalah — aku cek dari sisi server.', 'goto', 'meja');
+            await logMsg(env, 'dimas', 'user', 'Webhook ' + id + ' bermasalah — aku cek dari sisi server.', 'goto', 'meja');
             events.push('bot_sick_' + id);
           }
         }

@@ -336,7 +336,6 @@ const LOOKS = [
   {name:'Rafa',     g:'m', skin:0xf0c8a0, accent:0xd4d4d8, outfit:0,  hoodUp:true,  hair:{c:0x1b1b1b, s:'short'}},
   {name:'Dimas',    g:'m', skin:0xc68642, accent:0x38bdf8, outfit:6,  hoodUp:false, hair:{c:0x2b2118, s:'short'}},
   {name:'Sari',     g:'f', skin:0xe0ac69, accent:0xf472b6, outfit:7,  hoodUp:false, hair:{c:0x2a1a12, s:'long'}},
-  {name:'Bagas',    g:'m', skin:0x8d5524, accent:0xfbbf24, outfit:3,  hoodUp:true,  hair:{c:0x1f1a17, s:'short'}},
   {name:'Maya',     g:'f', skin:0xffdbac, accent:0x34d399, outfit:16, hoodUp:false, hair:{c:0x6b3f23, s:'bun'}},
   {name:'Raka',     g:'m', skin:0xa86b3c, accent:0xa78bfa, outfit:14, hoodUp:false, hair:{c:0x111111, s:'short'}},
   {name:'dr. Nadia', g:'f', skin:0xe8b890, accent:0x38bdf8, outfit:12, hoodUp:false, hair:{c:0x1a1210, s:'pony'}, work:12},
@@ -1133,7 +1132,7 @@ function updTimeUI(){
 const WK = [[8.5, 12], [13, 17.5]];
 const ROLES = [
   {t:'Frontend Dev', zone:[0, -16, 0, -4, 8], meet:0.15, shift:[[0, 24]]}, {t:'Developer', zone:[0, -16, 0, -4, 8], shift:[[0, 24]]},
-  {t:'UI/UX Designer', zone:[0, -4, 10, -20, -6], shift:[[0, 24]]}, {t:'DevOps', zone:[0, 10, 18, -20, -6], shift:[[0, 24]]},
+  {t:'UI/UX Designer', zone:[0, -4, 10, -20, -6], shift:[[0, 24]]},
   {t:'Product & HR', zone:[1, -13, 4, -5, 0], meet:0.15, shift:[[0, 24]]}, {t:'Marketing', zone:[1, 20, 28, -20, -14], meet:0.1, shift:[[0, 24]]},
   {t:'Dokter', doctor:true, shift:[[0, 24]]}, {t:'Customer Service', cs:true, shift:[[0, 24]]},
   {t:'Satpam', guard:true, shift:[[0, 24]]}, {t:'Kebersihan', cleaner:true, shift:[[0, 24]]},
@@ -2685,7 +2684,7 @@ function init(){
   /* [18 Okt, arahan Boss] karakter yang terhubung bot: namanya = nama bot (tanpa kata 'bot'), ambil otomatis dari server */
   fetch('/api/botinfo').then(r => r.json()).then(j => {
     if (!j || !j.ok || !j.bots) return;
-    const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3 };
+    const MAP = { rafa: 0, dimas: 1, sari: 2 };
     let changed = false;
     for (const id in MAP) {
       const b = j.bots[id]; if (!b || !b.name) continue;

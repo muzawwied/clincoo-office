@@ -3,7 +3,7 @@
    lalu papan namanya melebar jadi bubble dengan efek mengetik.
    Lapisan aditif: tidak mengubah logika 3D induk. */
 (() => {
-  const MAP = { rafa: 0, dimas: 1, sari: 2, bagas: 3, nadia: 6, lina: 7, joko: 8, tini: 9, user: 10, ceo: 10 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
+  const MAP = { rafa: 0, dimas: 1, sari: 2, nadia: 5, lina: 6, joko: 7, tini: 8, user: 9, ceo: 9 }; // index LOOKS/CHARS (user = avatar CEO Vylonium)
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pos = (c) => c.player.position;
   const d2 = (a, b) => Math.hypot(pos(a).x - pos(b).x, pos(a).z - pos(b).z);
