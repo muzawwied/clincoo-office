@@ -72,13 +72,13 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .nt .say::after{content:"";position:absolute;left:50%;bottom:-4px;width:8px;height:8px;background:#f8fafc;transform:translateX(-50%) rotate(45deg)}
 .floorbar button.fol{margin-left:4px;border-left:1px solid rgba(226,232,240,.2);border-radius:0 999px 999px 0}
 .floorbar button.fol.on{background:linear-gradient(160deg,#6b93ff,#3b63e8);color:#fff}
-.mini{position:fixed;top:calc(12px + var(--st));right:calc(12px + var(--sr));z-index:7;padding:6px 6px 5px;border-radius:12px;user-select:none;-webkit-user-select:none}
+.mini{position:fixed;top:calc(12px + var(--st));left:calc(12px + var(--sl));z-index:7;padding:6px 6px 5px;border-radius:12px;user-select:none;-webkit-user-select:none}
 .mini canvas{display:block;border-radius:7px;background:rgba(2,6,23,.45);cursor:pointer;touch-action:manipulation}
 .mini .lg{margin-top:4px;color:#cbd5e1;font:700 9.5px/1.2 system-ui,sans-serif;letter-spacing:.04em;text-align:center}
 .nt .r{margin-top:3px;color:#93c5fd;font:700 8.5px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
 
 /* ---------- HUD umum ---------- */
-.clock{position:fixed;left:var(--sl);top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:3px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.clock{position:fixed;left:calc(176px + var(--sl));top:calc(12px + var(--st));z-index:7;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:12px;color:var(--hud-tx);font:700 14px system-ui,sans-serif;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .floorbar{position:fixed;left:50%;bottom:calc(14px + var(--sb));transform:translateX(-50%);display:flex;gap:4px;padding:4px;border-radius:999px;z-index:5;font:700 13px system-ui,sans-serif}
 .floorbar button{border:0;border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer;background:transparent;color:#e2e8f0;touch-action:manipulation;transition:background .15s,color .15s}
 
@@ -110,7 +110,7 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 @keyframes bsp{to{transform:rotate(360deg)}}
 #toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:70;padding:9px 16px;border-radius:999px;background:rgba(15,23,42,.82);border:1px solid rgba(226,232,240,.2);color:#e2e8f0;font:700 12px/1 system-ui,sans-serif;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;white-space:nowrap}
 #toast.on{opacity:1;transform:translate(-50%,0)}
-.tod{position:fixed;left:calc(12px + var(--sl,0px));top:calc(56px + var(--st,0px));z-index:7;display:none;flex-wrap:wrap;gap:4px;padding:5px;border-radius:16px;max-width:calc(100vw - 24px)}
+.tod{position:fixed;left:calc(176px + var(--sl,0px));top:calc(60px + var(--st,0px));z-index:7;display:none;flex-wrap:wrap;gap:4px;padding:5px;border-radius:16px;max-width:calc(100vw - 24px)}
 .tod.open{display:flex}
 .tod button{border:0;border-radius:999px;padding:6px 11px;font:700 12px system-ui,sans-serif;cursor:pointer;background:transparent;color:var(--hud-tx,#e2e8f0);touch-action:manipulation}
 .tod button.on{background:linear-gradient(160deg,#6b93ff,#3b63e8);color:#fff}
@@ -1599,21 +1599,21 @@ const MAPC = ['#4f7cff','#34d399','#f472b6','#fbbf24','#a78bfa','#f87171','#94a3
 let miniBox = null, miniCv = null, miniG = null, miniLg = null, miniT = -9, miniLb = '';
 function makeMini(){
   miniBox = document.createElement('div'); miniBox.className = 'mini glass';
-  miniCv = document.createElement('canvas'); miniCv.width = 336; miniCv.height = 240; miniCv.style.width = '168px'; miniCv.style.height = '120px';
+  miniCv = document.createElement('canvas'); miniCv.width = 280; miniCv.height = 200; miniCv.style.width = '140px'; miniCv.style.height = '100px';
   miniG = miniCv.getContext('2d'); miniG.scale(2, 2);
   miniLg = document.createElement('div'); miniLg.className = 'lg'; miniBox.appendChild(miniCv); miniBox.appendChild(miniLg); document.body.appendChild(miniBox);
   miniCv.addEventListener('click', e => {
-    const r = miniCv.getBoundingClientRect(), x = (e.clientX - r.left) * 168 / r.width, y = (e.clientY - r.top) * 120 / r.height; let best = null, bd = 14;
-    CHARS.forEach(c => { if(c.pFloor !== viewFloor - 1) return; const d = Math.hypot((c.player.position.x + 28) * 3 - x, (c.player.position.z + 20) * 3 - y); if(d < bd){ bd = d; best = c; } });
+    const r = miniCv.getBoundingClientRect(), x = (e.clientX - r.left) * 140 / r.width, y = (e.clientY - r.top) * 100 / r.height; let best = null, bd = 14;
+    CHARS.forEach(c => { if(c.pFloor !== viewFloor - 1) return; const d = Math.hypot((c.player.position.x + 28) * 2.5 - x, (c.player.position.z + 20) * 2.5 - y); if(d < bd){ bd = d; best = c; } });
     if(best) setFollow(followCh === best ? null : best);
   });
 }
 function updMini(s){
   if(!miniBox) return; miniBox.style.display = pov ? 'none' : 'block'; if(pov) return;
   if(s - miniT < 0.2) return; miniT = s;
-  const g = miniG, f = Math.max(0, Math.min(2, viewFloor - 1)), sc = 3; g.clearRect(0, 0, 168, 120);
+  const g = miniG, f = Math.max(0, Math.min(2, viewFloor - 1)), sc = 2.5; g.clearRect(0, 0, 140, 100);
   MAPR[f].forEach(r => { g.fillStyle = '#' + r[4]; g.globalAlpha = 0.8; g.fillRect((r[0] + 28) * sc, (r[1] + 20) * sc, (r[2] - r[0]) * sc, (r[3] - r[1]) * sc); });
-  g.globalAlpha = 1; g.strokeStyle = 'rgba(226,232,240,.55)'; g.lineWidth = 1; g.strokeRect(0.5, 0.5, 167, f === 2 ? 28 * sc - 1 : 119);
+  g.globalAlpha = 1; g.strokeStyle = 'rgba(226,232,240,.55)'; g.lineWidth = 1; g.strokeRect(0.5, 0.5, 139, f === 2 ? 28 * sc - 1 : 99);
   STAIRS.forEach(S => { if(f === S.lo || f === S.hi){ g.fillStyle = '#d8b98a'; g.fillRect((S.x - 1 + 28) * sc, (Math.min(S.zb, S.zt) + 20) * sc, 2 * sc, Math.abs(S.zb - S.zt) * sc); } });
   const tx = (controls.target.x + 28) * sc, tz = (controls.target.z + 20) * sc;
   g.strokeStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.moveTo(tx - 4, tz); g.lineTo(tx + 4, tz); g.moveTo(tx, tz - 4); g.lineTo(tx, tz + 4); g.stroke();
@@ -1627,7 +1627,7 @@ function updMini(s){
     g.fillStyle = '#0f172a'; g.fillText((c.name || '?').charAt(0).toUpperCase(), x, z + 0.5);
   });
   const lb = 'L' + (f + 1) + ' · ' + cnt.map((n, i) => 'L' + (i + 1) + ':' + n).join(' ');
-  if(lb !== miniLb){ miniLb = lb; miniLg.textContent = 'Lantai ' + (f + 1) + '  |  ' + cnt.map((n, i) => 'L' + (i + 1) + ' ' + n).join('  '); }
+  if(lb !== miniLb){ miniLb = lb; miniLg.textContent = cnt.map((n, i) => 'L' + (i + 1) + ' ' + n).join(' \u00b7 '); }
 }
 
 /* ================= helpers ================= */
