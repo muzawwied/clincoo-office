@@ -63,6 +63,18 @@ button{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-tap-hig
 .nt::after{content:"";position:absolute;left:50%;bottom:-5px;width:8px;height:8px;background:rgba(15,23,42,.92);border-right:1px solid rgba(226,232,240,.22);border-bottom:1px solid rgba(226,232,240,.22);transform:translateX(-50%) rotate(45deg)}
 .nt .n{display:flex;align-items:center;justify-content:center;gap:5px;color:#f8fafc;font:700 12px/1.15 system-ui,sans-serif}
 .nt .n i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--dc,#4f7cff);box-shadow:0 0 6px var(--dc,#4f7cff)}
+.nt .bub{display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;padding:4px 10px;border-radius:999px;background:rgba(79,124,255,.95);border:1px solid rgba(255,255,255,.55);color:#fff;font:700 10px/1 system-ui,sans-serif;letter-spacing:.02em;box-shadow:0 4px 12px rgba(37,99,235,.45)}
+.nt .bub b{display:inline-block;width:3px;height:3px;margin-left:2px;border-radius:50%;background:#fff;vertical-align:middle;animation:bubd 1.1s infinite}
+.nt .bub b:nth-child(2){animation-delay:.18s}.nt .bub b:nth-child(3){animation-delay:.36s}
+@keyframes bubd{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+.nt .say{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) scale(.85);opacity:0;pointer-events:none;white-space:nowrap;padding:5px 10px;border-radius:12px;background:#f8fafc;color:#0f172a;font:600 11px/1.25 system-ui,sans-serif;box-shadow:0 4px 12px rgba(2,6,23,.35);transition:opacity .2s,transform .2s}
+.nt .say.on{opacity:1;transform:translateX(-50%) scale(1)}
+.nt .say::after{content:"";position:absolute;left:50%;bottom:-4px;width:8px;height:8px;background:#f8fafc;transform:translateX(-50%) rotate(45deg)}
+.floorbar button.fol{margin-left:4px;border-left:1px solid rgba(226,232,240,.2);border-radius:0 999px 999px 0}
+.floorbar button.fol.on{background:linear-gradient(160deg,#6b93ff,#3b63e8);color:#fff}
+.mini{position:fixed;top:calc(12px + var(--st));right:calc(12px + var(--sr));z-index:7;padding:6px 6px 5px;border-radius:12px;user-select:none;-webkit-user-select:none}
+.mini canvas{display:block;border-radius:7px;background:rgba(2,6,23,.45);cursor:pointer;touch-action:manipulation}
+.mini .lg{margin-top:4px;color:#cbd5e1;font:700 9.5px/1.2 system-ui,sans-serif;letter-spacing:.04em;text-align:center}
 .nt .r{margin-top:3px;color:#93c5fd;font:700 8.5px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase}
 
 /* ---------- HUD umum ---------- */
@@ -300,7 +312,7 @@ function buildPOIs(){
   mkPoi('NONGKRONG', 1, 13.2, 12.7, 0, 0.58, {lean:1});
   [14.4, 15.8, 17.2].forEach(z => mkPoi('SOLAT', 1, 3.9, z, -PI / 2, 0, {stand:true}));
   poiQ.forEach(fn => fn());
-  roleSpots(); assignPosts();
+  roleSpots(); assignPosts(); evSpots();
 }
 function startPos(){
   const q = snap(0, -25, 15, 12, true);
@@ -497,12 +509,13 @@ function actPose(p, t, ta){
   if(a === 'ANGKAT'){ const k = 0.5 + 0.5 * Math.sin(t * 2.4); return {sl:-0.1, sr:-0.1, el:-0.15 - 1.9 * k, er:-0.15 - 1.9 * k, tp:0.05, hx:0.1}; }
   if(a === 'TYPE') return Object.assign(b, {tp:0.08, sl:-0.85 + Math.sin(t * 13) * 0.05, sr:-0.85 + Math.cos(t * 11) * 0.05, el:-1.15, er:-1.15, hx:0.2, hy:Math.sin(t * 0.4) * 0.1});
   if(a === 'METING') return Object.assign(b, {sl:-0.5, el:-1.0, sr:-0.9 + Math.sin(t * 2.1) * 0.35, er:-1.3 + Math.sin(t * 3) * 0.2, hy:Math.sin(t * 0.7) * 0.45, hx:0.05});
-  if(a === 'NGOPI'){
+  if(a === 'STANDUP') return {tp:0.02, sl:-0.3, el:-0.9, sr:-0.5 + Math.sin(t * 2.3) * 0.3, er:-1.2 + Math.sin(t * 3.1) * 0.3, hy:Math.sin(t * 0.8) * 0.6, hx:0.05};
+  if(a === 'NGOPI' || a === 'MAKAN'){
     const c = t % 7, k = c > 2 && c < 4.5 ? Math.sin((c - 2) / 2.5 * Math.PI) : 0;
     const o = p.stand ? {} : b;
     return Object.assign(o, {sl:-0.7, el:-0.8, sr:-0.6 - 0.5 * k, er:-1.3 - 0.7 * k, hx:-0.2 * k + 0.05, hy:Math.sin(t * 0.5) * 0.2});
   }
-  if(a === 'NONTON') return Object.assign(b, {sl:-0.4, sr:-0.4, el:-1.1, er:-1.1, hx:-0.05, hy:Math.sin(t * 0.3) * 0.06, tp:-0.2 + ((t % 9) > 7 ? Math.sin(t * 18) * 0.04 : 0)});
+  if(a === 'NONTON' || a === 'FILM') return Object.assign(b, {sl:-0.4, sr:-0.4, el:-1.1, er:-1.1, hx:-0.05, hy:Math.sin(t * 0.3) * 0.06, tp:-0.2 + ((t % 9) > 7 ? Math.sin(t * 18) * 0.04 : 0)});
   if(a === 'NONGKRONG') return Object.assign(b, {sl:-0.35, el:-1.2, sr:-0.6 + Math.sin(t * 2.6) * 0.3, er:-1.4 + Math.sin(t * 3.1) * 0.3, hy:Math.sin(t * 0.9) * 0.5});
   if(a === 'TIDUR' && p.lie) return {rx:-Math.PI / 2, py:(p.sh + 0.17) / S_CH - HIP, kl:0.05, kr:0.05, hx:0.1, el:-0.2, er:-0.2, tp:Math.sin(t * 1.2) * 0.01, eye:0.05};
   if(a === 'SAKIT') return {rx:-Math.PI / 2, py:(p.sh + 0.17) / S_CH - HIP, kl:0.05, kr:0.05, hx:-0.15, sr:-1.6, er:-2.0, el:-0.2, tp:Math.sin(t * 1.5) * 0.012, eye:0.4};
@@ -602,7 +615,7 @@ function autoStair(ip){            // saat dikendalikan: jalan ke arah tangga = 
   stairGo(); return true;
 }
 function enterPOV(){
-  if(pov) return; pov = true; ctl = true; shellF = -1;
+  if(pov) return; if(followCh) setFollow(null); pov = true; ctl = true; shellF = -1;
   camSave = {p:camera.position.clone(), t:controls.target.clone(), fov:camera.fov};
   controls.enabled = false; camera.fov = 70; camera.near = 0.1; camera.updateProjectionMatrix(); camera.rotation.order = 'YXZ';
   vy = yawNow; vp = 0; P.head.visible = false; ctlUI.style.display = 'block'; if(floorBox) floorBox.style.display = 'none';
@@ -735,7 +748,7 @@ function audioInit(){
   AC = new C(); master = AC.createGain(); master.gain.value = 0.5; master.connect(AC.destination);
   noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
   const d = noiseBuf.getChannelData(0); for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  mkNoiseLoop('amb', 250, 0.7, 'lowpass', 0); mkNoiseLoop('water', 3000, 0.4, 'bandpass', 0); mkNoiseLoop('tv', 700, 0.8, 'bandpass', 3.2); mkNoiseLoop('chat', 520, 0.9, 'bandpass', 4.3);
+  mkNoiseLoop('amb', 250, 0.7, 'lowpass', 0); mkNoiseLoop('water', 3000, 0.4, 'bandpass', 0); mkNoiseLoop('tv', 700, 0.8, 'bandpass', 3.2); mkNoiseLoop('chat', 520, 0.9, 'bandpass', 4.3); mkNoiseLoop('rain', 3800, 0.45, 'bandpass', 0);
   const o = AC.createOscillator(), og = AC.createGain(), lp = AC.createBiquadFilter();
   o.type = 'sawtooth'; o.frequency.value = 62; lp.type = 'lowpass'; lp.frequency.value = 220; og.gain.value = 0;
   o.connect(lp); lp.connect(og); og.connect(master); o.start(); loops.tm = og;
@@ -779,8 +792,8 @@ function sfxUpdate(dt, t, act){
   const rp = Math.floor(t * 9 / Math.PI); if(on && act === 'LARI' && rp !== sfxRp) nz(0.09, 0.15, 130, 0.8, 'lowpass'); sfxRp = rp;
   const ap = Math.floor((t * 2.4 - Math.PI / 2) / (2 * Math.PI)); if(on && act === 'ANGKAT' && ap !== sfxAp){ tn(1800, 0.12, 0.05, 'triangle', 1200); nz(0.1, 0.08, 3000, 4, 'bandpass'); } sfxAp = ap;
   const sn = Math.floor(t / 3.6); if(on && act === 'TIDUR' && sn !== sfxSn){ nz(1.4, 0.05, 200, 1.5, 'bandpass', 0.5); nz(0.9, 0.035, 150, 1, 'lowpass', 0.3); } sfxSn = sn;
-  setLoop('tm', on && act === 'LARI' ? 0.05 : 0); setLoop('water', on && (act === 'MANDI' || act === 'SIKAT') ? 0.05 : 0); setLoop('tv', on && act === 'NONTON' ? 0.03 : 0);
-  setLoop('chat', on && (act === 'NONGKRONG' || act === 'METING') ? 0.03 : 0);
+  setLoop('tm', on && act === 'LARI' ? 0.05 : 0); setLoop('water', on && (act === 'MANDI' || act === 'SIKAT') ? 0.05 : 0); setLoop('tv', on && (act === 'NONTON' || act === 'FILM') ? 0.03 : 0); setLoop('rain', 0.08 * WX.rk * (pov ? 0.5 : 1));
+  setLoop('chat', on && (act === 'NONGKRONG' || act === 'METING' || act === 'STANDUP' || act === 'MAKAN') ? 0.03 : 0);
   ambT -= dt; if(ambT <= 0){ for(let i = 0; i < 3 + Math.floor(Math.random() * 4); i++) setTimeout(() => nz(0.025, 0.018, 2000 + Math.random() * 1500, 2, 'bandpass'), i * (70 + Math.random() * 90)); ambT = 1.5 + Math.random() * 3.5; }
 }
 
@@ -788,7 +801,7 @@ function sfxUpdate(dt, t, act){
 const CHARS = []; let curCh = null, ctrlChar = null;
 const FIELDS = ['player','rig','tors','P','st','stT','waitDur','actDur','path','poi','lastPoi','sit0','pFloor','floorY','climb','walkPh','yawNow','pose','zv','pendingAct','airNow','prevSt','blkT','ghostT'];
 function ctrlRun(fn){ if(!ctrlChar) return; curCh = ctrlChar; loadCh(ctrlChar); fn(); saveCh(ctrlChar); }
-function isTaken(p){ return CHARS.some(c => c !== curCh && c.poi === p); }
+function isTaken(p){ return CHARS.some(c => c !== curCh && c.poi && (c.poi === p || (c.poi.floor === p.floor && Math.hypot(c.poi.sx - p.sx, c.poi.sz - p.sz) < 0.3))); }
 function pedAt(x, z, y){ return CHARS.some(c => { if(c === curCh) return false; const o = c.player.position; return Math.abs(o.y - y) < 1.2 && Math.hypot(o.x - x, o.z - z) < 0.55; }); }
 function pedBlock(pp, ux, uz){
   return CHARS.some(c => { if(c === curCh) return false; const o = c.player.position; if(Math.abs(o.y - pp.y) > 1.2) return false;
@@ -810,6 +823,27 @@ function renameChar(c){
   inp.addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') inp.blur(); });
   inp.addEventListener('keyup', e => e.stopPropagation());
 }
+/* ===== status bot hidup: bot sedang membalas -> karakter duduk di meja & ngetik ===== */
+const BOT_MAP = {rafa:0, dimas:1, sari:2};
+function setBotBusy(id, v){
+  const i = typeof id === 'number' ? id : BOT_MAP[String(id).toLowerCase()], c = CHARS[i]; if(!c) return;
+  v = !!v; if(c.botBusy === v) return; c.botBusy = v; c.botT = 0;
+}
+function botIsBusy(b){
+  if(!b) return false;
+  if(b.busy || b.replying || b.typing || b.working || b.thinking) return true;
+  const s = String(b.status || b.state || '').toLowerCase();
+  return s === 'busy' || s === 'replying' || s === 'typing' || s === 'working' || s === 'thinking';
+}
+function botPoll(){
+  if(document.hidden) return;
+  fetch('/api/botinfo').then(r => r.json()).then(j => {
+    if(!j || !j.ok || !j.bots) return;
+    for(const id in BOT_MAP) if(j.bots[id]) setBotBusy(id, botIsBusy(j.bots[id]));
+  }).catch(() => {});
+}
+window.OFFICE_BOT = {set:setBotBusy, map:BOT_MAP};   // hook manual / dari office-live.js: OFFICE_BOT.set('rafa', true)
+window.addEventListener('office-bot', e => { if(e.detail) setBotBusy(e.detail.id, e.detail.busy); });
 function makeChars(){
   capLayer = document.createElement('div'); capLayer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:4;overflow:hidden';
   document.body.appendChild(capLayer);
@@ -819,11 +853,11 @@ function makeChars(){
     const root = createTycoon(lk); scene.add(root);
     const c = {player:root, rig, tors, P, st:'WAIT', stT:0, waitDur:1 + Math.random() * 4, actDur:10, path:[], poi:null, lastPoi:null, sit0:null,
       pFloor:0, floorY:0, climb:0, walkPh:0, yawNow:Math.random() * 6.28, pose:Object.assign({}, POSE0), zv:0, pendingAct:null, airNow:false, prevSt:'WAIT', blkT:0, ghostT:0,
-      name:(saved && saved[i]) || lk.name, editing:false, idx:i, look:lk, outfit:lk.outfit, wakeAt:null, solatBand:-1, changed:false, role:ROLES[i], post:ROLES[i].post, patI:0, patrolLeft:0};
+      name:(saved && saved[i]) || lk.name, editing:false, idx:i, look:lk, outfit:lk.outfit, wakeAt:null, solatBand:-1, changed:false, role:ROLES[i], post:ROLES[i].post, patI:0, patrolLeft:0, botBusy:false, botT:0, bub:null, bubOn:false, say:null, sayUntil:0, sayNext:0, sayLast:'', evT:0};
     const el = document.createElement('div'); el.className = 'nt'; el.style.setProperty('--dc', ['#4f7cff','#34d399','#f472b6','#fbbf24','#a78bfa','#f87171','#94a3b8','#ec4899','#0ea5e9','#14b8a6'][i % 10]);
     const row = document.createElement('div'); row.className = 'n'; const nm = document.createElement('span'); nm.textContent = c.name; row.appendChild(nm);
     const rl = document.createElement('div'); rl.className = 'r'; rl.textContent = ROLES[i].t;
-    el.appendChild(row); el.appendChild(rl); c.nameEl = nm; el.title = 'Ketuk untuk ganti nama';
+    el.appendChild(row); el.appendChild(rl); { const bb = document.createElement('div'); bb.className = 'bub'; bb.innerHTML = 'membalas<b></b><b></b><b></b>'; el.appendChild(bb); c.bub = bb; const sy = document.createElement('div'); sy.className = 'say'; el.appendChild(sy); c.say = sy; } c.nameEl = nm; el.title = 'Ketuk untuk ganti nama';
     el.addEventListener('click', e => { e.stopPropagation(); renameChar(c); });
     capLayer.appendChild(el); c.cap = el;
     let p = null; for(let k = 0; k < 80; k++){ const q = POIS[Math.floor(Math.random() * POIS.length)]; if(used.every(u => u.floor !== q.floor || Math.hypot(u.ax - q.ax, u.az - q.az) > 3)){ p = q; break; } }
@@ -841,6 +875,7 @@ function updCaps(){
     capV.set(pl.position.x, pl.position.y + 2.45 - (c.st === 'ACT' || c.st === 'SITIN' ? 0.3 : 0), pl.position.z).project(camera);
     const hide = !pl.visible || capV.z > 1 || (pov && c === ctrlChar);
     el.style.display = hide ? 'none' : 'block'; if(hide) return;
+    if(c.bub && c.bubOn !== c.botBusy){ c.bubOn = c.botBusy; c.bub.style.display = c.botBusy ? 'block' : 'none'; }
     el.style.transform = 'translate(' + ((capV.x + 1) / 2 * innerWidth).toFixed(1) + 'px,' + ((1 - capV.y) / 2 * innerHeight).toFixed(1) + 'px) translate(-50%,calc(-100% - 7px))';
   });
 }
@@ -1104,12 +1139,15 @@ function makeClock(){
   clockIc.style.cssText += ';cursor:pointer;padding:4px;margin:-4px'; clockIc.title = 'Pilih waktu: subuh, pagi, siang, sore, senja, malam';
   clockIc.addEventListener('click', e => { e.stopPropagation(); todEl.classList.toggle('open'); });
   clockEl.appendChild(clockIc); clockEl.appendChild(clockTxt); clockEl.appendChild(clockSc); clockEl.title = 'Ketuk untuk mempercepat waktu';
+  clockWx = document.createElement('span'); clockWx.style.cssText = 'font-size:11px;font-weight:700;color:#93c5fd;cursor:pointer;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.1)';
+  clockWx.title = 'Ketuk untuk ganti cuaca: otomatis, hujan, badai, cerah'; clockWx.addEventListener('click', e => { e.stopPropagation(); wxCycle(); }); clockEl.appendChild(clockWx);
+  clockEvt = document.createElement('span'); clockEvt.style.cssText = 'font-size:11px;font-weight:800;color:#fde68a;display:none'; clockEl.appendChild(clockEvt);
   clockEl.addEventListener('click', () => { tScaleI = (tScaleI + 1) % TSCALES.length; clockSc.textContent = TSCALES[tScaleI] > 1 ? 'x' + TSCALES[tScaleI] : ''; });
   document.body.appendChild(clockEl);
   bgDay = C3(0x2b3545); bgNight = C3(0x070b14);
   [g1, g2, g3].forEach((g, i) => [-14, 14].forEach(x => { const l = new THREE.PointLight(0xffd7a0, 0, 45, 1); l.position.set(x, 2.8, i === 2 ? -6 : 0); g.add(l); nightLs.push(l); }));
   todEl = document.createElement('div'); todEl.className = 'tod glass';
-  [['Live', null], ['Subuh', 4.9], ['Pagi', 7.5], ['Siang', 12], ['Sore', 16.2], ['Senja', 17.9], ['Malam', 21]].forEach(p => {
+  [['Live', null], ['Standup', 8.95], ['Makan', 12.5], ['Subuh', 4.9], ['Pagi', 7.5], ['Siang', 12], ['Sore', 16.2], ['Senja', 17.9], ['Malam', 21]].forEach(p => {
     const b = document.createElement('button'); b.textContent = p[0]; b.dataset.k = p[0];
     b.addEventListener('click', e => { e.stopPropagation(); gotoHour(p[1], p[0]); todEl.classList.remove('open'); });
     todEl.appendChild(b);
@@ -1119,8 +1157,8 @@ function makeClock(){
 }
 function updTimeUI(){
   const h = gameHour(), d = dayFactor(h), m = Math.floor(h * 60);
-  if(hemiL) hemiL.intensity = 0.16 + 0.3 * d; if(fillL) fillL.intensity = 0.08 + 0.22 * d;
-  nightLs.forEach(l => { l.intensity = 1.0 * (1 - d); });
+  if(hemiL) hemiL.intensity = (0.16 + 0.3 * d) * (1 - 0.4 * WX.k); if(fillL) fillL.intensity = (0.08 + 0.22 * d) * (1 - 0.5 * WX.k);
+  nightLs.forEach(l => { l.intensity = 1.0 * (1 - d) + 0.7 * WX.k * d; });
   if(ENV.ok) updEnv(h, d); else { if(sunL) sunL.intensity = 0.05 + 1.2 * d; scene.background.copy(bgNight).lerp(bgDay, d); }
   const t = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   if(clockTxt.textContent !== t) clockTxt.textContent = t;
@@ -1214,7 +1252,9 @@ function pickTask(){
   let w; const pjNow = OUTFITS[c.outfit].pj;
   // [17 Okt] tanpa ganti piyama otomatis; seragam kerja dipakai langsung saat mulai kerja
   if(c.look.work !== undefined && onShift(R, h) && c.outfit !== c.look.work && poiList(c, 'GANTI').length) w = {GANTI:1};
+  else if(EV.cur && !c.botBusy && EV.cur.who(c)){ w = {}; EV.cur.acts.forEach(a => { w[a] = 10; }); (EV.cur.alt || []).forEach(a => { w[a] = 1; }); }
   else if(R.doctor){ w = docWeights(h); if(CHARS.some(o => o !== c && o.poi && o.poi.act === 'SAKIT' && o.st === 'ACT')) w.PERIKSA = 90; }
+  else if(c.botBusy && c.post){ w = {POST:1}; }
   else if(onShift(R, h)){ w = {}; w[shiftAct(c, h)] = 1; }
   else { w = Object.assign({}, SCHED[band][1]); if(h >= 8 && h < 20) w.SAKIT = 0.8; }
   if(c.solatBand === band) delete w.SOLAT;
@@ -1236,8 +1276,11 @@ function durFor(p){
   const D = {JAGA:[35, 70], LAYANI:[40, 90], PATROLI:[6, 10], SAPU:[18, 30], PEL:[18, 30], PERIKSA:[15, 25], RACIK:[15, 25]}[a];
   return D ? D[0] + Math.random() * (D[1] - D[0]) : 14 + Math.random() * 14;
 }
+function evHas(ev, a){ return ev.acts.indexOf(a) >= 0 || (ev.alt && ev.alt.indexOf(a) >= 0); }
 function actDone(){
-  const c = curCh;
+  const c = curCh, ev = EV.cur;
+  if(ev && ev.who(c) && evHas(ev, poi.act)) return false;
+  if(poi.act === 'STANDUP' || poi.act === 'MAKAN' || poi.act === 'FILM') return true;
   if(poi.lie && poi.act === 'TIDUR' && c.wakeAt != null){ if(c.wakeAt - gameMin > 1500) c.wakeAt = gameMin; return gameMin >= c.wakeAt; }
   if(stT >= actDur){
     if((poi.postOf === c.idx || poi.hold) && onShift(c.role, gameHour())){ stT = 0; actDur = 40 + Math.random() * 50; return false; } // [18 Okt, arahan Boss] di meja sendiri: duduk terus, tidak berdiri lagi
@@ -1259,6 +1302,14 @@ function updateChar(dt, t){
     }
     if(st === 'WAIT') st = 'MAN';
   }
+  if(!ctl && curCh.botBusy && curCh.post && poi !== curCh.post && (st === 'WAIT' || st === 'ACT') && t - (curCh.botT || 0) > 2){
+    curCh.botT = t;                         // bot sedang membalas: karakter ke mejanya dan ngetik
+    const okGo = goPoi(curCh.post); if(!okGo && st === 'MAN') st = 'WAIT';
+  }
+  { const ev = EV.cur;
+    if(!ctl && ev && !curCh.botBusy && ev.who(curCh) && !(poi && evHas(ev, poi.act)) && (st === 'WAIT' || st === 'ACT') && t - (curCh.evT || 0) > 2.5){
+      curCh.evT = t; evJoin(ev);
+    } }
   if(st === 'WAIT'){
     T = {hy:Math.sin(t * 0.6) * 0.5, hx:0.05, sl:Math.sin(t * 1.1) * 0.03, tp:Math.sin(t * 1.5) * 0.012};
     if(stT >= waitDur && !ctl) pickTask();
@@ -1333,7 +1384,7 @@ function updateChar(dt, t){
   if(act === 'GANTI' && st === 'ACT' && stT > 2.4 && !curCh.changed){
     curCh.changed = true; setOutfit(curCh, fitFor(curCh, gameHour()));
   }
-  P.cup.visible = act === 'NGOPI'; P.cup.rotation.x = -(pose.tp + pose.sr + pose.er);
+  P.cup.visible = act === 'NGOPI' || act === 'MAKAN'; P.cup.rotation.x = -(pose.tp + pose.sr + pose.er);
   P.zzz.visible = act === 'TIDUR'; P.zzz.position.y = 0.55 + Math.sin(t * 2) * 0.05;
   if(curCh === (ctrlChar || CHARS[0])) sfxUpdate(dt, t, act);
   // tinggi lantai: tangga berundak, selain itu rata
@@ -1350,6 +1401,233 @@ function updateChar(dt, t){
     if(cur !== actMark){ actMark = cur; for(const k in sideBtns) sideBtns[k].classList.toggle('on', k === cur); }
   }
   player.visible = viewFloor >= 3 || pp.y < FY[viewFloor] - 0.4;
+}
+
+
+/* ============================================================
+   EVENT HARIAN: standup, makan siang bareng, nonton bareng (Jumat)
+   ============================================================ */
+const EVDEFS = [
+  {id:'standup', name:'Standup', start:9, end:9.3, days:null, acts:['STANDUP'], alt:['METING'], who:c => !(c.role.guard || c.role.cs)},
+  {id:'lunch', name:'Makan siang', start:12.5, end:13.2, days:null, acts:['MAKAN'], alt:['NGOPI', 'NONGKRONG'], who:c => !(c.role.guard || c.role.cs)},
+  {id:'movie', name:'Nonton bareng', start:16, end:17.75, days:[5], acts:['FILM'], alt:['NONTON', 'NONGKRONG'], who:c => true}
+];
+const EV = {cur:null, force:null, lbl:null};
+function evDow(){ return (new Date(DAY0).getDay() + Math.floor(gameMin / 1440)) % 7; }
+function evNow(){
+  if(EV.force) return EVDEFS.find(e => e.id === EV.force) || null;
+  const h = gameHour(), d = evDow();
+  return EVDEFS.find(e => h >= e.start && h < e.end && (!e.days || e.days.indexOf(d) >= 0)) || null;
+}
+function updEvents(){
+  const ev = evNow(); if(ev !== EV.cur) EV.cur = ev;
+  const l = ev ? ev.name : ''; if(l !== EV.lbl && clockEvt){ EV.lbl = l; clockEvt.textContent = l ? '• ' + l : ''; clockEvt.style.display = l ? 'inline' : 'none'; }
+}
+function evJoin(ev){
+  const pp = player.position, cost = p => Math.hypot(p.ax - pp.x, p.az - pp.z) + (p.floor !== pFloor ? 40 : 0), ceo = curCh.role.t === 'CEO';
+  const acts = ev.acts.concat(ev.alt || []);
+  for(const a of acts){
+    const L = POIS.filter(p => p.act === a && !p.lie && !isTaken(p) && p.postOf === undefined && (!p.head || ceo)).sort((x, y) => cost(x) - cost(y));
+    for(const p of L.slice(0, 4)){ if(goPoi(p)) return; }
+  }
+}
+function mkPoiAt(act, f, sx, sz, yaw, sh, ax, az, o){
+  if(!isFree(f, ax, az) || !rch(f, ax, az)){ const q = snap(f, ax, az, 4, true); if(!q) return null; ax = ccx(q[0]); az = ccz(q[1]); }
+  const p = Object.assign({act, floor:f, sx, sz, yaw, sh, ax, az, sit:true}, o || {}); POIS.push(p); return p;
+}
+function evSpots(){
+  const PI = Math.PI, CH = 0.52 * K, cx = -10.5, cz = -13;
+  // standup: berdiri melingkar mengelilingi meja meeting Lantai 1
+  [[-14.2,-9.0],[-12.2,-9.0],[-10.2,-9.0],[-8.2,-9.0],[-6.2,-9.0],[-14.4,-16.6],[-12.2,-16.8],[-10.2,-16.8],[-8.2,-16.8],[-6.2,-16.6],[-15.2,-13],[-5.2,-13]].forEach(a => {
+    const q = snap(0, a[0], a[1], 7, true); if(!q) return; const x = ccx(q[0]), z = ccz(q[1]);
+    if(POIS.some(p => p.act === 'STANDUP' && Math.hypot(p.sx - x, p.sz - z) < 0.6)) return;
+    mkPoi('STANDUP', 0, x, z, Math.atan2(cx - x, cz - z), 0, {stand:true, lim:1.5});
+  });
+  // makan siang: meja pantry (kursi sama dengan ngopi) + kursi bar + berdiri
+  [[21.7,-13.45,PI],[23.2,-13.45,PI],[24.7,-13.45,PI],[21.7,-10.95,0],[23.2,-10.95,0],[24.7,-10.95,0]].forEach(a => { const y = a[2] + PI; mkPoi('MAKAN', 0, a[0] + Math.sin(y) * 0.25, a[1] + Math.cos(y) * 0.25, y, CH); });
+  [21.6, 23, 24.4].forEach(x => mkPoi('MAKAN', 0, x, -15.3, PI, 0.7 * K, {}));
+  [[20.6,-9.0,0],[25.8,-8.6,0]].forEach(a => mkStand('MAKAN', 0, a[0], a[1], a[2], {lim:1.5}));
+  // nonton bareng: bioskop Lantai 2 (baris 1 & 3 dari lorong samping, baris 2 hanya kursi ujung)
+  const zs = [-3.2, -1.7, -0.2, 1.3, 2.8, 4.3];
+  [0, 1, 2].forEach(i => {
+    const x = 14.2 + i * 3.1, ph = 0.25 * (i + 1);
+    zs.forEach((z, k) => {
+      const sz = z + 0.55; let ax, az;
+      if(i === 0){ ax = 12.1; az = sz; } else if(i === 2){ ax = 22.6; az = sz; } else if(k === 0){ ax = x; az = -5.7; } else if(k === 5){ ax = x; az = 7.4; } else return;
+      mkPoiAt('FILM', 1, x, sz, PI / 2, 0.58, ax, az, {lean:1, dy:ph});
+    });
+  });
+}
+let clockWx = null, clockEvt = null;
+window.OFFICE_EVENT = {force:id => { EV.force = id || null; }, list:() => EVDEFS.map(e => e.id)};   // uji manual: OFFICE_EVENT.force('movie')
+
+/* ============================================================
+   BUBBLE OBROLAN antar karakter
+   ============================================================ */
+const TALK = {
+  STANDUP:['Update kemarin beres', 'Hari ini fokus fitur baru', 'Ada blocker di API', 'Deploy jam 3 ya', 'Butuh review PR', 'Desain sudah siap', 'Siap, noted!', 'Aman, lanjut'],
+  METING:['Setuju!', 'Boleh dicoba', 'Timeline-nya gimana?', 'Catat dulu ya', 'Prioritas minggu ini?', 'Ide bagus', 'Nanti saya follow up', 'Anggarannya cukup?'],
+  NONGKRONG:['Wkwk iya bener', 'Eh, udah makan?', 'Capek tapi seru', 'Weekend ke mana?', 'Kopi dulu yuk', 'Serius?!', 'Hahaha', 'Nonton apa semalam?'],
+  MAKAN:['Bismillah', 'Enak banget', 'Tambah nasi dong', 'Sambalnya mana?', 'Alhamdulillah kenyang', 'Traktir siapa nih?', 'Pedes!', 'Es teh satu lagi'],
+  FILM:['Wah seru', 'Ssst, nonton dulu', 'Plot twist!', 'Bagi popcorn dong', 'Hahaha lucu', 'Sedih banget'],
+  NONTON:['Seru nih', 'Ssst...', 'Hahaha', 'Lanjut episode berikutnya?'],
+  NGOPI:['Kopi hitam mantap', 'Gulanya berapa?', 'Ngantuk nih']
+};
+let talkT = 0;
+function actOf(c){ return c.st === 'ACT' && c.poi ? (c.poi.sub || c.poi.act) : ''; }
+function updTalk(s){
+  if(s - talkT < 0.4) return; talkT = s;
+  const act = CHARS.map(actOf);
+  CHARS.forEach((c, i) => {
+    if(!c.say) return;
+    if(c.sayUntil && (s > c.sayUntil || !TALK[act[i]])){ c.sayUntil = 0; c.say.classList.remove('on'); c.sayNext = s + 2.5 + Math.random() * 5; }
+    if(c.sayUntil || (pov && c === ctrlChar)) return;
+    const a = act[i]; if(!TALK[a]) return;
+    if(!c.sayNext) c.sayNext = s + Math.random() * 3;
+    if(s < c.sayNext) return;
+    let best = -1, bd = 4.6;
+    CHARS.forEach((o, j) => {
+      if(j === i || !TALK[act[j]] || o.pFloor !== c.pFloor) return;
+      const d = Math.hypot(o.player.position.x - c.player.position.x, o.player.position.z - c.player.position.z); if(d < bd){ bd = d; best = j; }
+    });
+    if(best < 0){ c.sayNext = s + 3; return; }
+    const pool = TALK[a]; let txt = pool[Math.floor(Math.random() * pool.length)];
+    if(txt === c.sayLast) txt = pool[(pool.indexOf(txt) + 1) % pool.length];
+    c.sayLast = txt; c.say.textContent = txt; c.say.classList.add('on'); c.sayUntil = s + 2.4 + Math.random() * 1.6;
+    const o = CHARS[best]; if(!o.sayUntil) o.sayNext = Math.min(o.sayNext || 1e9, s + 1.2 + Math.random() * 1.2);   // lawan bicara membalas
+  });
+}
+
+/* ============================================================
+   CUACA: hujan, badai, petir
+   ============================================================ */
+const WX = {mode:'auto', k:0, rk:0, nextBolt:0, bolt:-1, rain:null, lbl:''};
+const WXN = ['Cerah', 'Hujan', 'Badai'], wxTmp = new THREE.Color();
+function wxAuto(h){
+  const day = Math.floor(DAY0 / 864e5) + Math.floor(gameMin / 1440);
+  const r = x => { const t = Math.sin(day * 127.1 + x * 311.7) * 43758.5453; return t - Math.floor(t); };
+  if(r(1) > 0.5) return 0;                                  // ~50% hari ada hujan
+  const st = 13 + r(2) * 5, du = 1.5 + r(3) * 2.5;
+  if(h < st || h > st + du) return 0;
+  return (r(4) > 0.5 && h > st + du * 0.3 && h < st + du * 0.75) ? 2 : 1;
+}
+function wxCycle(){ const seq = ['auto', 1, 2, 0]; WX.mode = seq[(seq.indexOf(WX.mode) + 1) % 4]; }
+window.OFFICE_WEATHER = {set:m => { const mp = {auto:'auto', clear:0, rain:1, storm:2}; if(m in mp) WX.mode = mp[m]; }};   // OFFICE_WEATHER.set('storm')
+function thunder(){ if(!AC || muted) return; nz(2.4, 0.3, 80, 0.6, 'lowpass', 0.25); nz(1.6, 0.18, 220, 0.8, 'lowpass', 0.1); tn(60, 2.0, 0.1, 'triangle', 30); }
+function buildRain(){
+  if(!ENV.ok) return;
+  const N = 2600, pos = new Float32Array(N * 6), end = new Float32Array(N * 2), rr = new Float32Array(N * 2);
+  for(let i = 0; i < N; i++){
+    const x = Math.random() * 90, y = Math.random() * 80, z = Math.random() * 90, r = Math.random();
+    for(let k = 0; k < 2; k++){ const j = i * 2 + k; pos[j * 3] = x; pos[j * 3 + 1] = y; pos[j * 3 + 2] = z; end[j] = k; rr[j] = r; }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aEnd', new THREE.BufferAttribute(end, 1)); g.setAttribute('aR', new THREE.BufferAttribute(rr, 1));
+  const m = new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, fog:false,
+    uniforms:{uT:{value:0}, uC:{value:new THREE.Vector3()}, uK:{value:0}, uW:{value:0.2}, uS:{value:40}},
+    vertexShader:'attribute float aEnd; attribute float aR; uniform float uT, uK, uW, uS; uniform vec3 uC;' +
+      'void main(){ float sp = uS * (0.8 + 0.4 * aR); vec3 w;' +
+      ' w.x = uC.x + mod(position.x - uC.x + 45.0, 90.0) - 45.0; w.z = uC.z + mod(position.z - uC.z + 45.0, 90.0) - 45.0;' +
+      ' w.y = -0.6 + mod(position.y - uT * sp, 80.0); w.y += aEnd * 1.8; w.x += aEnd * uW * 1.8;' +
+      ' if(aR > uK) w = vec3(0.0, -1000.0, 0.0);' +
+      ' gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }',
+    fragmentShader:'void main(){ gl_FragColor = vec4(0.75, 0.83, 0.95, 0.42); }'
+  });
+  const R = new THREE.LineSegments(g, m); R.frustumCulled = false; R.renderOrder = 5; R.visible = false; scene.add(R); WX.rain = R;
+}
+function updWeather(dt, s){
+  const E = ENV; if(!E.ok) return;
+  const h = gameHour(), tg = WX.mode === 'auto' ? wxAuto(h) : WX.mode, a = Math.min(1, dt * 0.22);
+  WX.k += ([0, 0.72, 1][tg] - WX.k) * a; WX.rk += ([0, 0.5, 1][tg] - WX.rk) * a;
+  if(tg === 0){ if(WX.k < 0.004) WX.k = 0; if(WX.rk < 0.004) WX.rk = 0; }
+  const k = WX.k;
+  /* petir (hanya saat badai penuh) */
+  if(tg === 2 && k > 0.85 && WX.bolt < 0){
+    if(!WX.nextBolt) WX.nextBolt = s + 3 + Math.random() * 6;
+    else if(s >= WX.nextBolt){ WX.bolt = s; WX.nextBolt = 0; if(AC && !muted) setTimeout(thunder, 300 + Math.random() * 1700); }
+  } else if(tg !== 2) WX.nextBolt = 0;
+  let fl = 0;
+  if(WX.bolt >= 0){ const u = s - WX.bolt; fl = u < 0.08 ? 1 : u < 0.17 ? 0.2 : u < 0.26 ? 0.9 : 0.9 * Math.exp(-(u - 0.26) * 7); if(u > 1.4){ WX.bolt = -1; fl = 0; } }
+  /* langit mendung + kilat */
+  const lum = c => 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+  let g = lum(E.top) * 0.5 + 0.035; wxTmp.setRGB(g, g * 1.03, g * 1.1); E.wTop.copy(E.top).lerp(wxTmp, k * 0.85);
+  g = lum(E.hor) * 0.62 + 0.045; wxTmp.setRGB(g, g * 1.03, g * 1.08); E.wHor.copy(E.hor).lerp(wxTmp, k * 0.9);
+  if(fl > 0){ wxTmp.setRGB(0.78, 0.84, 1); E.wTop.lerp(wxTmp, fl * 0.6); E.wHor.lerp(wxTmp, fl * 0.75); }
+  scene.fog.color.copy(E.wHor); scene.background.copy(E.wHor); scene.fog.near = 170 - 70 * k; scene.fog.far = 430 - 150 * k;
+  if(sunL) sunL.intensity = E.sunBase * (1 - 0.68 * k) + fl * 1.2;
+  if(hemiL) hemiL.intensity += fl * 1.4;
+  E.stars.material.opacity = E.starsBase * (1 - k);
+  const show = k < 0.45; E.sunM.visible = E.sunH.visible = E.sunVis && show; E.moonM.visible = E.moonH.visible = E.moonVis && show;
+  E.cloudMat.color.copy(E.cloudBase).multiplyScalar(Math.max(0.1, 1 - 0.58 * k + fl * 0.5));
+  for(let i = 0; i < E.cl.length; i++){ const c = E.cl[i]; if(c.w) c.s.scale.set(c.w * (1 + 0.6 * k), c.w * 0.45 * (1 + 0.6 * k), 1); }
+  /* hujan */
+  const R = WX.rain;
+  if(R){
+    R.visible = WX.rk > 0.02 && !pov;
+    if(R.visible){ const u = R.material.uniforms; u.uT.value = s; u.uC.value.set(controls.target.x, 0, controls.target.z); u.uK.value = Math.min(1, WX.rk * 1.25); u.uS.value = 36 + 16 * WX.rk; u.uW.value = 0.15 + 0.3 * WX.rk; }
+  }
+  const lbl = (WX.mode === 'auto' ? 'Auto · ' : '') + WXN[tg];
+  if(lbl !== WX.lbl && clockWx){ WX.lbl = lbl; clockWx.textContent = lbl; }
+}
+
+/* ============================================================
+   KAMERA IKUTI KARAKTER + MINIMAP
+   ============================================================ */
+let followCh = null, followBtn = null, followFl = -1;
+function setFollow(c){
+  followCh = c; controls.enablePan = !c; followFl = -1;
+  if(c){ const t = controls.target, o = camera.position.clone().sub(t), L = o.length(); if(L > 26) camera.position.copy(t).addScaledVector(o, 26 / L); }
+  if(followBtn){ followBtn.textContent = c ? 'Ikuti: ' + c.name : 'Ikuti'; followBtn.classList.toggle('on', !!c); }
+}
+function followCycle(){ const i = followCh ? CHARS.indexOf(followCh) + 1 : 0; setFollow(i >= CHARS.length ? null : CHARS[i]); }
+const fvec = new THREE.Vector3();
+function followStep(dt){
+  if(!followCh || pov) return;
+  const pl = followCh.player.position;
+  fvec.set(pl.x - controls.target.x, pl.y + 1.0 - controls.target.y, pl.z - controls.target.z).multiplyScalar(Math.min(1, 5 * dt));
+  controls.target.add(fvec); camera.position.add(fvec);
+  if(followCh.pFloor !== followFl){ followFl = followCh.pFloor; if(viewFloor !== followFl + 1){ const ty = controls.target.y; setFloor(followFl + 1); controls.target.y = ty; } }
+  if(followBtn && followBtn.textContent !== 'Ikuti: ' + followCh.name) followBtn.textContent = 'Ikuti: ' + followCh.name;
+}
+const MAPR = [
+  [[-28,-6,-16,20,'b5ab9b'],[-28,-20,-17,-6,'6f4a31'],[-17,-20,-4,-6,'5d6f8a'],[-4,-20,10,-6,'c9a574'],[10,-20,18,-6,'2b3441'],[18,-20,28,-6,'e0cfa8'],[-16,-6,10,20,'9a9791'],[10,-6,28,2,'7f93a8'],[10,2,22,20,'56616f'],[22,2,28,20,'c9d1d9']],
+  [[-28,-20,-12,-6,'4a3b2f'],[-12,-20,-2,-6,'2b2740'],[-2,-20,12,-6,'9c8f78'],[12,-20,20,-6,'4b5563'],[20,-20,28,-6,'b9b2a3'],[-28,-6,-16,8,'8a5a36'],[-28,8,-19,20,'aaa294'],[-19,8,-16,11,'aaa294'],[-16,-6,10,20,'aaa597'],[10,-6,28,8,'1f1b2e'],[10,8,28,20,'9a7650']],
+  [[-28,-20,-22.4,-12,'c9a574'],[-22.4,-20,-16.8,-12,'b08968'],[-16.8,-20,-11.2,-12,'a3b18a'],[-11.2,-20,-5.6,-12,'cdb4db'],[-5.6,-20,0,-12,'bfd4ff'],[0,-20,5.6,-12,'e8c7a1'],[5.6,-20,11.2,-12,'d9c8a9'],[11.2,-20,16.8,-12,'b7c4cf'],[16.8,-20,22.4,-12,'c8d5b9'],[22.4,-20,28,-12,'d6cdbd'],[-28,-12,28,-9,'8c8578'],[-28,-9,-8,8,'b08968'],[-8,-9,2,8,'dbe7ee'],[2,-9,14,8,'e9f3f5'],[14,-9,28,8,'cbb8a0']]
+];
+const MAPC = ['#4f7cff','#34d399','#f472b6','#fbbf24','#a78bfa','#f87171','#94a3b8','#ec4899','#0ea5e9','#14b8a6'];
+let miniBox = null, miniCv = null, miniG = null, miniLg = null, miniT = -9, miniLb = '';
+function makeMini(){
+  miniBox = document.createElement('div'); miniBox.className = 'mini glass';
+  miniCv = document.createElement('canvas'); miniCv.width = 336; miniCv.height = 240; miniCv.style.width = '168px'; miniCv.style.height = '120px';
+  miniG = miniCv.getContext('2d'); miniG.scale(2, 2);
+  miniLg = document.createElement('div'); miniLg.className = 'lg'; miniBox.appendChild(miniCv); miniBox.appendChild(miniLg); document.body.appendChild(miniBox);
+  miniCv.addEventListener('click', e => {
+    const r = miniCv.getBoundingClientRect(), x = (e.clientX - r.left) * 168 / r.width, y = (e.clientY - r.top) * 120 / r.height; let best = null, bd = 14;
+    CHARS.forEach(c => { if(c.pFloor !== viewFloor - 1) return; const d = Math.hypot((c.player.position.x + 28) * 3 - x, (c.player.position.z + 20) * 3 - y); if(d < bd){ bd = d; best = c; } });
+    if(best) setFollow(followCh === best ? null : best);
+  });
+}
+function updMini(s){
+  if(!miniBox) return; miniBox.style.display = pov ? 'none' : 'block'; if(pov) return;
+  if(s - miniT < 0.2) return; miniT = s;
+  const g = miniG, f = Math.max(0, Math.min(2, viewFloor - 1)), sc = 3; g.clearRect(0, 0, 168, 120);
+  MAPR[f].forEach(r => { g.fillStyle = '#' + r[4]; g.globalAlpha = 0.8; g.fillRect((r[0] + 28) * sc, (r[1] + 20) * sc, (r[2] - r[0]) * sc, (r[3] - r[1]) * sc); });
+  g.globalAlpha = 1; g.strokeStyle = 'rgba(226,232,240,.55)'; g.lineWidth = 1; g.strokeRect(0.5, 0.5, 167, f === 2 ? 28 * sc - 1 : 119);
+  STAIRS.forEach(S => { if(f === S.lo || f === S.hi){ g.fillStyle = '#d8b98a'; g.fillRect((S.x - 1 + 28) * sc, (Math.min(S.zb, S.zt) + 20) * sc, 2 * sc, Math.abs(S.zb - S.zt) * sc); } });
+  const tx = (controls.target.x + 28) * sc, tz = (controls.target.z + 20) * sc;
+  g.strokeStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.moveTo(tx - 4, tz); g.lineTo(tx + 4, tz); g.moveTo(tx, tz - 4); g.lineTo(tx, tz + 4); g.stroke();
+  g.font = 'bold 7px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const cnt = [0, 0, 0];
+  CHARS.forEach((c, i) => {
+    cnt[c.pFloor]++; if(c.pFloor !== f) return;
+    const x = (c.player.position.x + 28) * sc, z = (c.player.position.z + 20) * sc;
+    if(c === followCh){ g.strokeStyle = '#fde68a'; g.lineWidth = 2; g.beginPath(); g.arc(x, z, 8, 0, 6.3); g.stroke(); }
+    g.fillStyle = MAPC[i % 10]; g.beginPath(); g.arc(x, z, 5, 0, 6.3); g.fill(); g.lineWidth = 1; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#0f172a'; g.fillText((c.name || '?').charAt(0).toUpperCase(), x, z + 0.5);
+  });
+  const lb = 'L' + (f + 1) + ' · ' + cnt.map((n, i) => 'L' + (i + 1) + ':' + n).join(' ');
+  if(lb !== miniLb){ miniLb = lb; miniLg.textContent = 'Lantai ' + (f + 1) + '  |  ' + cnt.map((n, i) => 'L' + (i + 1) + ' ' + n).join('  '); }
 }
 
 /* ================= helpers ================= */
@@ -2395,6 +2673,7 @@ function makeUI(){
         b.addEventListener('click', () => setFloor(i + 1));
     box.appendChild(b); floorBtns.push(b);
   });
+  followBtn = document.createElement('button'); followBtn.className = 'fol'; followBtn.textContent = 'Ikuti'; followBtn.title = 'Kamera mengikuti karakter (tombol F)'; followBtn.addEventListener('click', followCycle); box.appendChild(followBtn);
   document.body.appendChild(box);
 }
 
@@ -2422,7 +2701,7 @@ function makeOrient(){
 }
 
 /* ===== LINGKUNGAN: tanah, langit, matahari/bulan, fase waktu ===== */
-const ENV = {ok:false, force:true, lastH:-1, t0:performance.now(), cl:[], tmp:new THREE.Color(), top:new THREE.Color(), hor:new THREE.Color(), sunC:new THREE.Color(), hemiC:new THREE.Color(), moonC:new THREE.Color(0x8fa6e8),
+const ENV = {ok:false, cloudBase:new THREE.Color(0xffffff), wTop:new THREE.Color(), wHor:new THREE.Color(), sunBase:1, starsBase:0, sunVis:true, moonVis:false, force:true, lastH:-1, t0:performance.now(), cl:[], tmp:new THREE.Color(), top:new THREE.Color(), hor:new THREE.Color(), sunC:new THREE.Color(), hemiC:new THREE.Color(), moonC:new THREE.Color(0x8fa6e8),
   sd:new THREE.Vector3(), md:new THREE.Vector3(), l1:new THREE.Vector3(), l2:new THREE.Vector3(), gd:new THREE.Vector3(0, 1, 0)};
 /* jam, langit-atas, langit-horizon, warna-matahari, warna-hemisfer, bintang, cahaya-horizon */
 const SKYKF = [
@@ -2472,14 +2751,14 @@ function updEnv(h, d){
   const U = E.dome.material.uniforms; U.uGlowK.value = glow * (E.sd.y > -0.12 ? 1 : 0.3);
   E.gd.copy(E.sd.y > -0.12 ? E.sd : E.md); U.uGlow.value.copy(E.sunC);
   scene.fog.color.copy(E.hor); scene.background.copy(E.hor);
-  E.stars.material.opacity = stars; E.stars.visible = stars > 0.02;
-  E.cloudMat.color.setRGB(1, 1, 1).lerp(E.hor, 0.45).multiplyScalar(1 - 0.72 * stars).convertSRGBToLinear();
+  E.stars.material.opacity = stars; E.starsBase = stars; E.stars.visible = stars > 0.02;
+  E.cloudMat.color.setRGB(1, 1, 1).lerp(E.hor, 0.45).multiplyScalar(1 - 0.72 * stars).convertSRGBToLinear(); E.cloudBase.copy(E.cloudMat.color);
 
   /* matahari & bulan */
   E.sunM.position.copy(E.sd).multiplyScalar(350); E.sunH.position.copy(E.sunM.position);
   E.moonM.position.copy(E.md).multiplyScalar(350); E.moonH.position.copy(E.moonM.position);
   const sv = E.sd.y > -0.07, mv = E.md.y > -0.07;
-  E.sunM.visible = E.sunH.visible = sv; E.moonM.visible = E.moonH.visible = mv;
+  E.sunVis = sv; E.moonVis = mv; E.sunM.visible = E.sunH.visible = sv; E.moonM.visible = E.moonH.visible = mv;
   E.sunM.material.color.copy(E.sunC).convertSRGBToLinear(); E.sunH.material.color.copy(E.sunC).convertSRGBToLinear();
   E.sunH.material.opacity = 0.55 * clamp01(E.sd.y * 6 + 0.5);
 
@@ -2488,7 +2767,7 @@ function updEnv(h, d){
   if(sunL){
     sunL.position.copy(E.l1).multiplyScalar(86);
     sunL.color.copy(E.sunC).lerp(E.moonC, 1 - d);
-    sunL.intensity = 0.05 + 1.2 * d * (0.35 + 0.65 * clamp01(E.sd.y / 0.25)) + 0.22 * (1 - d) * clamp01(E.md.y * 4);
+    E.sunBase = 0.05 + 1.2 * d * (0.35 + 0.65 * clamp01(E.sd.y / 0.25)) + 0.22 * (1 - d) * clamp01(E.md.y * 4); sunL.intensity = E.sunBase;
   }
   if(hemiL) hemiL.color.copy(E.hemiC);
 
@@ -2578,7 +2857,7 @@ function buildEnv(){
     const sky = new THREE.Group(); E.sky = sky;
     const dome = new THREE.Mesh(new THREE.SphereGeometry(400, 24, 16), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
-      uniforms: {uTop: {value: E.top}, uHor: {value: E.hor}, uGlow: {value: new THREE.Color()}, uGlowK: {value: 0}, uSunDir: {value: E.gd}},
+      uniforms: {uTop: {value: E.wTop}, uHor: {value: E.wHor}, uGlow: {value: new THREE.Color()}, uGlowK: {value: 0}, uSunDir: {value: E.gd}},
       vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: 'uniform vec3 uTop, uHor, uGlow; uniform float uGlowK; uniform vec3 uSunDir; varying vec3 vD;' +
         'void main(){ vec3 n = normalize(vD); float t = pow(clamp(n.y, 0.0, 1.0), 0.55); vec3 c = mix(uHor, uTop, t);' +
@@ -2608,7 +2887,7 @@ function buildEnv(){
     E.cloudMat = new THREE.SpriteMaterial({map: cloudT, transparent: true, depthWrite: false, fog: false, toneMapped: false, opacity: 0.9});
     for(let i = 0; i < 10; i++){
       const s = new THREE.Sprite(E.cloudMat), w = 100 + rn() * 90; s.scale.set(w, w * 0.45, 1); sky.add(s);
-      E.cl.push({s, az: rn() * Math.PI * 2, el: (6 + rn() * 26) * Math.PI / 180, sp: 0.002 + rn() * 0.003});
+      E.cl.push({s, w, az: rn() * Math.PI * 2, el: (6 + rn() * 26) * Math.PI / 180, sp: 0.002 + rn() * 0.003});
     }
     scene.add(sky);
     E.ok = true; E.force = true;
@@ -2676,7 +2955,7 @@ function init(){
   buildAll();
   scene.updateMatrixWorld(true);
   scene.traverse(o => { if(o.isMesh || o.isGroup) o.matrixAutoUpdate = false; });
-  buildEnv();
+  buildEnv(); buildRain();
   FXOBJ.forEach(o => { o.matrixAutoUpdate = true; });
   
   gameMin = realMin();
@@ -2697,11 +2976,12 @@ function init(){
     if (changed) saveNames();
   }).catch(() => {});
   makeCtlUI(); makeClock(); makeOrient();
+  botPoll(); setInterval(botPoll, 3000);
 
-  makeUI();
+  makeUI(); makeMini();
   setFloor(1);
 
-  window.addEventListener('keydown', e => { if(e.key === '1') setFloor(1); if(e.key === '2') setFloor(2); if(e.key === '3') setFloor(3); });
+  window.addEventListener('keydown', e => { if((e.key === 'f' || e.key === 'F') && !pov && !(e.target && e.target.tagName === 'INPUT')) followCycle(); if(e.key === '1') setFloor(1); if(e.key === '2') setFloor(2); if(e.key === '3') setFloor(3); });
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -2721,10 +3001,10 @@ function animate(t){
   
   leds.forEach(l => l.m.color.setHex(Math.sin(s * 3 + l.ph * 5) > 0.2 ? l.on : 0x14532d).convertSRGBToLinear());
   
-  advanceClock(delta); updTimeUI(); updScreens(s);
-  updateAll(delta, s);
+  advanceClock(delta); updTimeUI(); updScreens(s); updEvents(); updWeather(delta, s);
+  updateAll(delta, s); updTalk(s);
 
-  if(pov){ loadCh(ctrlChar); povCam(delta, s); } else controls.update();
+  if(pov){ loadCh(ctrlChar); povCam(delta, s); } else { followStep(delta); controls.update(); }
 
   // hemat GPU: render hanya saat ada gerakan (kamera/karakter/POV);
   // saat kantor diam, cukup ~8fps agar tetap HD tapi ringan
@@ -2739,7 +3019,8 @@ function animate(t){
     if (Math.abs(p.x - l.x) > 0.004 || Math.abs(p.z - l.z) > 0.004 || Math.abs(p.y - l.y) > 0.004) busy = true;
     l.x = p.x; l.y = p.y; l.z = p.z;
   }
-  envFollow();
+  envFollow(); updMini(s);
+  if (WX.rk > 0.02 && s - lastDraw >= 0.033) busy = true;
   if (busy || s - lastDraw >= 0.125) {
     if(PERF.shEvery > 1 && (PERF.fr++ % PERF.shEvery) === 0) renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera); updCaps(); lastDraw = s;
@@ -2759,9 +3040,10 @@ window.__initApp = init;
 /* ===== LOADER OFFLINE: simpan library Three.js di IndexedDB + daftarkan service worker ===== */
 (function(){
   'use strict';
+  /* tiap library: coba self-host dulu, kalau 404 (mis. dibuka sebagai file/pratinjau) pakai CDN r128 */
   var LIBS = [
-    '/libs/three.min.js',
-    '/libs/OrbitControls.js' // [17 Okt] self-host: loading stabil tanpa CDN
+    ['/libs/three.min.js', 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'],
+    ['/libs/OrbitControls.js', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js']
   ];
   var $ = function(id){ return document.getElementById(id); };
   var boot = $('boot'), txt = $('bootTxt'), sub = $('bootSub'), retry = $('bootRetry'), toastEl = $('toast');
@@ -2798,7 +3080,15 @@ window.__initApp = init;
     var t = d.transaction('libs', 'readwrite'); t.objectStore('libs').put(v, k); t.oncomplete = res; t.onerror = function(){ rej(t.error); }; }); }); }
 
   /* --- ambil kode library: cache dulu, baru jaringan --- */
-  function getLib(url){
+  function getLib(list){
+    var i = 0;
+    function next(){
+      var u = list[i++];
+      return getLibOne(u).then(function(r){ r.url = u; return r; }, function(e){ if(i < list.length) return next(); throw e; });
+    }
+    return next();
+  }
+  function getLibOne(url){
     return idbGet(url).catch(function(){ return null; }).then(function(cached){
       if(cached) return { code: cached, fresh: false };
       return fetch(url, { mode: 'cors' }).then(function(r){
@@ -2827,7 +3117,7 @@ window.__initApp = init;
   function start(){
     boot.classList.remove('err'); txt.textContent = 'Memuat…'; sub.textContent = '';
     Promise.all(LIBS.map(getLib)).then(function(rs){
-      rs.forEach(function(r, i){ run(r.code, LIBS[i]); });
+      rs.forEach(function(r){ run(r.code, r.url); });
       if(typeof THREE === 'undefined' || !THREE.OrbitControls) throw new Error('Three.js tidak termuat');
       var app = document.createElement('script');
       app.text = $('app-src').textContent + '\n//# sourceURL=office3d-app.js';
