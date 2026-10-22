@@ -25,7 +25,7 @@ export async function onRequestGet({ request, env }) {
     b.webhook = null;
     if (tok) {
       try {
-        const r = await fetch('https://api.telegram.org/bot' + tok + '/getWebhookInfo').then((x) => x.json());
+        const r = { ok: false }; // [22 Okt] hubungan bot diputus — tidak cek webhook Telegram lagi
         if (r.ok) b.webhook = { url: (r.result.url || '').slice(0, 120), pending: r.result.pending_update_count || 0 };
       } catch (e) {}
     }
@@ -102,6 +102,10 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ ok: !!r, char: cid, name: persona(cid).name, reply: r || null, error: r ? null : 'AI tidak merespons (cek key/model atau rate limit)' });
   }
   if (act === 'set_webhook') {
+    return Response.json({ ok: false, error: 'Hubungan bot Telegram diputus permanen oleh owner — webhook tidak bisa dipasang lagi.' });
+  }
+  /* [22 Okt, perintah owner] aksi set_webhook & test_send diputus:
+if (act === 'set_webhook') {
     const id = String(body.id || '').toLowerCase();
     const tok = await getBotToken(env, id);
     if (!tok) return Response.json({ ok: false, error: 'token bot tidak ada' });
@@ -109,6 +113,7 @@ export async function onRequestPost({ request, env }) {
     const r = await fetch('https://api.telegram.org/bot' + tok + '/setWebhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, allowed_updates: ['message', 'edited_message'] }) }).then((x) => x.json());
     return Response.json({ ok: !!r.ok, error: r.ok ? null : (r.description || 'gagal set webhook') });
   }
+    */
   if (act === 'test_send') {
     const id = String(body.id || '').toLowerCase();
     const tok = await getBotToken(env, id);
@@ -134,5 +139,7 @@ async function getBotToken(env, id) {
   try { const r = await env.DB.prepare('SELECT tg_token FROM office_bots WHERE id = ?').bind(id).first(); return r ? r.tg_token : null; } catch (e) { return null; }
 }
 async function tgCheck(tok) {
+  // [22 Okt] hubungan bot diputus — tolak semua verifikasi token bot baru
+  return null;
   try { const r = await fetch('https://api.telegram.org/bot' + tok + '/getMe').then((x) => x.json()); return !!r.ok; } catch (e) { return false; }
 }

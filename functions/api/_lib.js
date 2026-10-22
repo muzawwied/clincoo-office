@@ -45,6 +45,8 @@ export function persona(id) { const k = String(id || '').toLowerCase(); return P
 let BOT_NAMES_DONE = false;
 export async function enrichBotNames(env) {
   if (BOT_NAMES_DONE) return;
+  // [22 Okt, perintah owner] SEMUA hubungan bot diputus — tidak ada panggilan ke api.telegram.org lagi.
+  return;
   BOT_NAMES_DONE = true;
   for (const id of Object.keys(PERSONAS)) {
     const tok = env['CHAR_' + id.toUpperCase() + '_TOKEN'];
@@ -338,6 +340,8 @@ function splitForTelegram(text, max = 3800) {
   });
 }
 export async function tgSend(token, chatId, text) {
+  // [22 Okt, perintah owner] hubungan bot Telegram diputus permanen — tidak ada pesan yang keluar ke Telegram lagi.
+  return;
   try {
     text = redactSecrets(text);
     for (const part of splitForTelegram(text)) {
